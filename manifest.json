@@ -1,0 +1,25 @@
+{
+  "short_name": "DecodeScout",
+  "name": "FTC Decode Scouting PWA",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/fluency/192/radar.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://img.icons8.com/fluency/512/radar.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#0d1117",
+  "theme_color": "#1f2937",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "./",
+  "description": "Premium offline-first Progressive Web App (PWA) for the 2025-26 FTC Decode Season scouting operations."
+}

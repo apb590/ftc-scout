@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Premium, offline-first Progressive Web App designed to record, cache, and synchronize 2025-26 FTC Decode Season match scouting data.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d1117">
+  
+  <title>FTC Decode Scouting PWA</title>
+
+  <!-- PWA Web App Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="shortcut icon" href="https://img.icons8.com/fluency/192/radar.png" type="image/png">
+  
+  <!-- Master Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="alliance-blue"> <!-- Default starting state alliance color -->
+
+  <!-- Toast Notification Box -->
+  <div id="toast-notification" class="toast-banner">
+    <span id="toast-message">Form Autosaved!</span>
+  </div>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="logo-section">
+      <img src="https://img.icons8.com/fluency/192/radar.png" alt="Decode Scout Radar Logo" class="logo-icon">
+      <h1 class="app-title" id="app-main-title">DecodeScout</h1>
+    </div>
+    
+    <div class="header-status">
+      <span id="sync-status-indicator" class="status-tag status-online">Online</span>
+      <span id="pending-sync-badge" class="pending-badge" style="display: none;">0 pending</span>
+      <button class="settings-btn" id="open-settings-btn" aria-label="Open App Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Content Container -->
+  <main class="main-container">
+    
+    <!-- Segmented Navigation Menu -->
+    <nav class="navigation-bar">
+      <button class="nav-tab active" id="tab-scout" data-target="scout-section">Scouting Form</button>
+      <button class="nav-tab" id="tab-history" data-target="history-section">Offline Logs</button>
+    </nav>
+
+    <!-- scouting form view -->
+    <section id="scout-section" class="form-section active">
+      <form id="scouting-form" autocomplete="off" onsubmit="return false;">
+        
+        <!-- SECTION 1: MATCH METADATA -->
+        <div class="premium-card">
+          <h2 class="card-title">Match Setup</h2>
+          
+          <div class="input-group">
+            <label class="input-label" for="username">Scouter Email (Login ID) *</label>
+            <input type="email" id="username" class="input-control" placeholder="scouter@team.com" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="matchno">Match Number *</label>
+              <input type="number" id="matchno" class="input-control" placeholder="e.g. 12" min="1" required>
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="teamno">Team Number *</label>
+              <input type="number" id="teamno" class="input-control" placeholder="e.g. 16379" min="1" required>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Alliance Color *</label>
+            <div class="segmented-container alliance-select" id="alliance-container">
+              <div class="segment-item">
+                <button type="button" class="segment-btn" id="alliance-btn-red" data-value="Red">Red</button>
+              </div>
+              <div class="segment-item">
+                <button type="button" class="segment-btn active" id="alliance-btn-blue" data-value="Blue">Blue</button>
+              </div>
+            </div>
+            <input type="hidden" id="alliance" value="Blue">
+          </div>
+        </div>
+
+        <!-- SECTION 2: INTERACTIVE CANVASES STARTING POSITION -->
+        <div class="premium-card">
+          <h2 class="card-title">Starting Position</h2>
+          <p class="input-label" style="margin-bottom: 8px;">Tap your starting coordinate on the map grid:</p>
+          
+          <div class="canvas-wrapper">
+            <canvas id="starting-pos-canvas"></canvas>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="robotpos">Mapped Selection (State Code)</label>
+            <input type="text" id="robotpos" class="input-control" value="3 - Middle" readonly style="background: rgba(15,23,42,0.4); opacity: 0.85;">
+          </div>
+        </div>
+
+        <!-- SECTION 3: AUTONOMOUS PERIOD -->
+        <div class="premium-card">
+          <h2 class="card-title">Autonomous Phase</h2>
+          
+          <div class="input-group">
+            <label class="input-label">Autonomous Movement? (Automove)</label>
+            <div class="segmented-container">
+              <div class="segment-item">
+                <button type="button" class="segment-btn" data-field="automove" data-value="Yes">Yes</button>
+              </div>
+              <div class="segment-item">
+                <button type="button" class="segment-btn active" data-field="automove" data-value="No">No</button>
+              </div>
+            </div>
+            <input type="hidden" id="automove" value="No">
+          </div>
+
+          <!-- Counters Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Preloads Scored</label>
+              <div class="counter-wrapper">
+                <button type="button" class="counter-btn minus" data-target="preload_made">−</</button>
+                <span class="counter-value" id="val-preload_made">0</span>
+                <button type="button" class="counter-btn" data-target="preload_made">+</button>
+              </div>
+              <input type="hidden" id="preload_made" value="0">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Preloads Missed</label>
+              <div class="counter-wrapper">
+                <button type="button" class="counter-btn minus" data-target="preload_miss">−</button>
+                <span class="counter-value" id="val-preload_miss">0</span>
+                <button type="button" class="counter-btn" data-target="preload_miss">+</button>
+              </div>
+              <input type="hidden" id="preload_miss" value="0">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Auton Pickups Scored</label>
+              <div class="counter-wrapper">
+                <button type="button" class="counter-btn minus" data-target="pickup_made">−</button>
+                <span class="counter-value" id="val-pickup_made">0</span>
+                <button type="button" class="counter-btn" data-target="pickup_made">+</button>
+              </div>
+              <input type="hidden" id="pickup_made" value="0">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Auton Pickups Missed</label>
+              <div class="counter-wrapper">
+                <button type="button" class="counter-btn minus" data-target="pickup_miss">−</button>
+                <span class="counter-value" id="val-pickup_miss">0</span>
+                <button type="button" class="counter-btn" data-target="pickup_miss">+</button>
+              </div>
+              <input type="hidden" id="pickup_miss" value="0">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="pickup_ovw">Pickup Overview</label>
+            <select id="pickup_ovw" class="input-control">
+              <option value="No pickups attempted">No pickups attempted</option>
+              <option value="Consistently clean">Consistently clean</option>
+              <option value="Fumbled or struggled">Fumbled or struggled</option>
+              <option value="Only human player placement">Only human player placement</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="auto_range">Auto Shooting Range</label>
+            <select id="auto_range" class="input-control">
+              <option value="No shots taken / unknown">No shots taken / unknown</option>
+              <option value="Close to goal">Close to goal</option>
+              <option value="Long distance / close to audience">Long distance / close to audience</option>
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="auto_pattern">Scoring Pattern Description</label>
+              <input type="text" id="auto_pattern" class="input-control" placeholder="e.g. Left spike to goal">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="auto_gate">Auton Substage Gate Interaction</label>
+              <input type="text" id="auto_gate" class="input-control" placeholder="e.g. Passed under left gate">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="auto_midline">Midline Interception Notes</label>
+              <input type="text" id="auto_midline" class="input-control" placeholder="e.g. Cleared 2 central spikes">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="auto_park">Auton End Parking Status</label>
+              <input type="text" id="auto_park" class="input-control" placeholder="e.g. Completely inside tile">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="auto_penal">Auton Penalties / Infractions</label>
+            <input type="text" id="auto_penal" class="input-control" placeholder="None / Description of fouls">
+          </div>
+        </div>
+
+        <!-- SECTION 4: TELEOPERATED PERIOD -->
+        <div class="premium-card">
+          <h2 class="card-title">Teleop Phase</h2>
+
+          <div class="input-group">
+            <label class="input-label" for="telesetup">First Step Setup Strategy</label>
+            <select id="telesetup" class="input-control">
+              <option value="Not sure / not a distinct first step">Not sure / not a distinct first step</option>
+              <option value="Aligned flush to Substage Gate">Aligned flush to Substage Gate</option>
+              <option value="Spike extraction immediately">Spike extraction immediately</option>
+              <option value="Blocking opponent alliance lanes">Blocking opponent alliance lanes</option>
+            </select>
+          </div>
+
+          <!-- Score grids -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Close Shots Made</label>
+              <div class="counter-wrapper">
+                <button type="button" class="counter-btn minus" data-target="close_made">−</button>
+                <span class="counter-value" id="val-close_made">0</span>
+                <button type="button" class="counter-btn" data-target="close_made">+</button>
+              </div>
+              <input type="hidden" id="close_made" value="0">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Close Shots Missed</label>
+              <div class="counter-wrapper">
+                <button type="button" class="counter-btn minus" data-target="close_miss">−</button>
+                <span class="counter-value" id="val-close_miss">0</span>
+                <button type="button" class="counter-btn" data-target="close_miss">+</button>
+              </div>
+              <input type="hidden" id="close_miss" value="0">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="close_ovw">Close Scoring Execution Review</label>
+            <input type="text" id="close_ovw" class="input-control" placeholder="Quick assessment of close range shots">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Far Shots Made</label>
+              <div class="counter-wrapper">
+                <button type="button" class="counter-btn minus" data-target="far_made">−</button>
+                <span class="counter-value" id="val-far_made">0</span>
+                <button type="button" class="counter-btn" data-target="far_made">+</button>
+              </div>
+              <input type="hidden" id="far_made" value="0">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Far Shots Missed</label>
+              <div class="counter-wrapper">
+                <button type="button" class="counter-btn minus" data-target="far_miss">−</button>
+                <span class="counter-value" id="val-far_miss">0</span>
+                <button type="button" class="counter-btn" data-target="far_miss">+</button>
+              </div>
+              <input type="hidden" id="far_miss" value="0">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="far_ovw">Far Range Scoring Execution Review</label>
+            <input type="text" id="far_ovw" class="input-control" placeholder="Quick assessment of far range shots">
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="tele_collection">Intake Collection Target Strategy</label>
+            <select id="tele_collection" class="input-control">
+              <option value="Ground only">Ground only</option>
+              <option value="Human Player only">Human Player only</option>
+              <option value="Both Ground and Human Player">Both Ground and Human Player</option>
+              <option value="None / broken down">None / broken down</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="tele_pattern">Intake Flow Route Pattern</label>
+            <input type="text" id="tele_pattern" class="input-control" placeholder="Description of collection cycling route">
+          </div>
+        </div>
+
+        <!-- SECTION 5: ENDGAME & RULES -->
+        <div class="premium-card">
+          <h2 class="card-title">Endgame & Review</h2>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="gate_opn">Substage Gate Operation Mode</label>
+              <input type="text" id="gate_opn" class="input-control" placeholder="Auto / manual lifting">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="tele_range">Preferred Cycle Range</label>
+              <input type="text" id="tele_range" class="input-control" placeholder="e.g. Always long range">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="defense">Defensive Interaction Profile</label>
+            <select id="defense" class="input-control">
+              <option value="No intentional contact">No intentional contact</option>
+              <option value="Light defense">Light defense</option>
+              <option value="Heavy defense">Heavy defense</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="timetopark">Time Duration to Complete Park</label>
+            <select id="timetopark" class="input-control">
+              <option value="1-5 seconds">1-5 seconds</option>
+              <option value="6-10 seconds">6-10 seconds</option>
+              <option value="More than 15 seconds">More than 15 seconds</option>
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="park_base">Terminal Base parking</label>
+              <select id="park_base" class="input-control">
+                <option value="Parked inside base">Parked inside base</option>
+                <option value="Incomplete / failed base park">Incomplete / failed base park</option>
+                <option value="Did not attempt">Did not attempt</option>
+              </select>
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="park_bonus">Terminal Substage Parking</label>
+              <select id="park_bonus" class="input-control">
+                <option value="Parked inside substage">Parked inside substage</option>
+                <option value="Incomplete / failed substage park">Incomplete / failed substage park</option>
+                <option value="Did not attempt">Did not attempt</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label" for="tele_penal">Teleop Phase Fouls/Penalties</label>
+              <input type="text" id="tele_penal" class="input-control" placeholder="e.g. Major pin penalty">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label class="input-label">Robot Suffered Failures?</label>
+              <div class="segmented-container">
+                <div class="segment-item">
+                  <button type="button" class="segment-btn" data-field="breaks" data-value="Yes">Yes</button>
+                </div>
+                <div class="segment-item">
+                  <button type="button" class="segment-btn active" data-field="breaks" data-value="No">No</button>
+                </div>
+              </div>
+              <input type="hidden" id="breaks" value="No">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 6: COMMENTS & SUBMISSION -->
+        <div class="premium-card">
+          <h2 class="card-title">Match Notes</h2>
+          
+          <div class="input-group">
+            <label class="input-label" for="comments">General Scouter Comments & Structural Analysis</label>
+            <textarea id="comments" class="input-control" placeholder="Detail game strategies, fumbles, intake issues, alignment details, driving speeds..."></textarea>
+          </div>
+
+          <button type="submit" class="btn-primary" id="submit-form-btn">Submit Scouting Entry</button>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- offline logs view -->
+    <section id="history-section" class="form-section">
+      <div class="premium-card">
+        <h2 class="card-title">Database Utilities</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <button type="button" class="btn-primary" id="btn-export-csv">Export to CSV</button>
+          <button type="button" class="btn-primary" id="btn-export-json">Export to JSON</button>
+        </div>
+        <button type="button" class="btn-secondary" id="btn-trigger-sync">Force Auto-Sync Ingestion Queue</button>
+      </div>
+
+      <div class="premium-card">
+        <h2 class="card-title">Match Submission History</h2>
+        <div id="history-list-container">
+          <!-- Populated programmatically in history render loops -->
+          <div class="history-empty">No scout records have been logged in the local offline database yet.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- OVERLAY MODAL: APP SETTINGS -->
+  <div class="overlay-modal" id="settings-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.2rem; display: flex; align-items: center; gap: 6px;">
+          <span style="color: hsl(260, 60%, 60%)">⚙</span> Application Options
+        </h3>
+        <button type="button" class="modal-close" id="close-settings-modal-btn">&times;</button>
+      </div>
+      
+      <div class="input-group">
+        <label class="input-label" for="setting-sync-endpoint">Spreadsheet Ingestion API Webhook URL</label>
+        <input type="url" id="setting-sync-endpoint" class="input-control" placeholder="https://endpoint-link-here...">
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="setting-canvas-backdrop">Interactive Canvas Map Style</label>
+        <select id="setting-canvas-backdrop" class="input-control">
+          <option value="default">Default Field View (Blue border)</option>
+          <option value="dark">Juice Black (High contrast dark)</option>
+          <option value="light">Juice Light (Maximum visibility light)</option>
+        </select>
+      </div>
+
+      <button type="button" class="btn-primary" id="save-settings-btn" style="background: hsl(260, 60%, 60%); box-shadow: 0 0 15px rgba(139, 92, 246, 0.4)">Save & Apply Changes</button>
+    </div>
+  </div>
+
+  <!-- OVERLAY MODAL: OFFLINE QR CODE VISUALIZATION -->
+  <div class="overlay-modal" id="qr-modal">
+    <div class="modal-content" style="text-align: center;">
+      <div class="modal-header">
+        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.15rem;" id="qr-modal-title">Offline Scouter Record</h3>
+        <button type="button" class="modal-close" id="close-qr-modal-btn">&times;</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+        Present this screen code to your lead scout's camera at the alliance station for physical offline ingestion.
+      </p>
+
+      <div class="qr-modal-canvas-container">
+        <canvas id="qr-display-canvas"></canvas>
+      </div>
+
+      <div class="input-group" style="text-align: left;">
+        <label class="input-label">Record Key Index Code</label>
+        <input type="text" id="qr-record-id-field" class="input-control" readonly style="text-align: center; font-size: 0.85rem; background: rgba(0,0,0,0.15);">
+      </div>
+
+      <button type="button" class="btn-secondary" id="close-qr-modal-action-btn">Done Viewing</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       PWA JavaScript Controllers Ingestion
+       ========================================================================== -->
+  <!-- Standalone QR Code Generator Library (Cached offline by SW) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  
+  <!-- Custom Libraries -->
+  <script src="js/db.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
