@@ -50,6 +50,7 @@
     <nav class="navigation-bar">
       <button class="nav-tab active" id="tab-scout" data-target="scout-section">Scouting Form</button>
       <button class="nav-tab" id="tab-history" data-target="history-section">Offline Logs</button>
+      <button class="nav-tab" id="tab-audit" data-target="audit-section">Audit Logs</button>
     </nav>
 
     <!-- scouting form view -->
@@ -398,6 +399,25 @@
         <div id="history-list-container">
           <!-- Populated programmatically in history render loops -->
           <div class="history-empty">No scout records have been logged in the local offline database yet.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- audit logs view -->
+    <section id="audit-section" class="form-section">
+      <div class="premium-card">
+        <h2 class="card-title">Discrepancy Audit Panel</h2>
+        <p class="input-label" style="margin-bottom: 12px; font-size: 0.85rem; color: var(--text-secondary);">
+          Below are scouting entries flagged due to points discrepancies between scouted alliance totals and official FIRST API non-penalty scores.
+        </p>
+        <button type="button" class="btn-primary" id="btn-fetch-flagged" style="width: 100%;">Query Flagged Records</button>
+      </div>
+
+      <div class="premium-card">
+        <h2 class="card-title">Active Flagged Anomalies</h2>
+        <div id="audit-list-container">
+          <!-- Populated dynamically via fetch loops -->
+          <div class="history-empty" id="audit-empty-msg">Click 'Query Flagged Records' to retrieve flagged sheet data.</div>
         </div>
       </div>
     </section>

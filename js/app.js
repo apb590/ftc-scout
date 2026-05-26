@@ -70,6 +70,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (targetId === "history-section") {
         renderHistoryList();
       }
+
+      // Query flagged audit logs if switching to audits
+      if (targetId === "audit-section") {
+        renderAuditLogsList();
+      }
     });
   });
 
@@ -523,5 +528,222 @@ document.addEventListener("DOMContentLoaded", async () => {
       showToast(`Successfully synced ${syncedCount} entries!`);
     }
   });
+
+  // ----------------============================================================
+  // PART 15: REAL-TIME SCOUTING DISCREPANCY AUDITING & FEEDBACK LOOP
+  // ------------------------------------------------============================
+  
+  const auditListContainer = document.getElementById("audit-list-container");
+  const btnFetchFlagged = document.getElementById("btn-fetch-flagged");
+  let activeFlaggedRecords = []; // Global memory array for active audits
+
+  btnFetchFlagged.addEventListener("click", () => renderAuditLogsList());
+
+  async function renderAuditLogsList() {
+    if (!auditListContainer) return;
+
+    if (!navigator.onLine) {
+      auditListContainer.innerHTML = `<div class="history-empty" style="color:var(--color-error)">Browser is Offline! Live sheet discrepancies cannot be queried while network is down.</div>`;
+      return;
+    }
+
+    auditListContainer.innerHTML = `<div class="history-empty animate-pulse">Querying Google Sheets for points discrepancies... Please wait.</div>`;
+
+    try {
+      const endpoint = window.syncManager.getSyncEndpoint();
+      const response = await fetch(`${endpoint}?action=getFlaggedRecords`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to connect to Google Sheet API. Status: " + response.status);
+      }
+
+      activeFlaggedRecords = await response.json();
+
+      if (activeFlaggedRecords.length === 0) {
+        auditListContainer.innerHTML = `<div class="history-empty" style="color:hsl(140, 70%, 40%)">✓ All scouted alliance points are aligned with official FIRST scores! Excellent scouting accuracy.</div>`;
+        return;
+      }
+
+      let listHtml = "";
+      activeFlaggedRecords.forEach(rec => {
+        const allianceDotClass = rec.alliance && rec.alliance.toLowerCase() === "red" ? "red" : "blue";
+        const deltaLabelClass = rec.delta > 0 ? "text-error" : "text-success";
+        const deltaSymbol = rec.delta > 0 ? "+" : "";
+        
+        listHtml += `
+          <div class="history-item" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="history-team" style="font-family:'Outfit'; font-weight:bold;">
+                <span class="alliance-dot ${allianceDotClass}"></span>
+                Team ${rec.teamno} &bull; Match ${rec.matchno}
+              </div>
+              <span class="sync-badge pending" style="background:rgba(239, 68, 68, 0.15); color:#ef4444; border:1px solid #ef4444;">DISCREPANCY</span>
+            </div>
+            
+            <div style="font-size:0.85rem; color:var(--text-secondary); line-height:1.4;">
+              <strong>Scouter:</strong> ${rec.username}<br/>
+              <strong>Scouted Total Points:</strong> ${rec.scoutedPoints}<br/>
+              <strong>Points Delta vs FIRST Score:</strong> <span class="${deltaLabelClass}" style="font-weight:bold;">${deltaSymbol}${rec.delta.toFixed(1)} points</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+              <button class="btn-secondary btn-correct-audit" data-id="${rec.id}" style="padding: 6px 10px; font-size: 0.8rem; box-shadow:none; border: 1px solid var(--border-color);">
+                ✏️ Correct & Resubmit
+              </button>
+              <button class="btn-primary btn-bypass-audit" data-id="${rec.id}" style="padding: 6px 10px; font-size: 0.8rem; background:hsl(260, 60%, 50%); box-shadow:none;">
+                🔒 Bypass (Force Approve)
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      auditListContainer.innerHTML = listHtml;
+
+      // Bind button click event listeners
+      document.querySelectorAll(".btn-correct-audit").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const recId = btn.getAttribute("data-id");
+          handleCorrectAudit(recId);
+        });
+      });
+
+      document.querySelectorAll(".btn-bypass-audit").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const recId = btn.getAttribute("data-id");
+          handleBypassAudit(recId);
+        });
+      });
+
+    } catch (e) {
+      console.error("[App] Fetch flagged errors fail:", e);
+      auditListContainer.innerHTML = `<div class="history-empty" style="color:var(--color-error)">Failed to query flagged records: ${e.message}</div>`;
+    }
+  }
+
+  // Restores a flagged record's original scout data back into the main form
+  function handleCorrectAudit(recordId) {
+    const targetRecord = activeFlaggedRecords.find(r => r.id === recordId);
+    if (!targetRecord) {
+      alert("Flagged record payload not loaded in active memory!");
+      return;
+    }
+
+    const confirmCorrection = confirm(`Correct and resubmit Team ${targetRecord.teamno} for Match ${targetRecord.matchno}? This will load their values into the form so you can adjust them.`);
+    if (!confirmCorrection) return;
+
+    console.log(`[Audit] Replenishing form controls with flagged dataset:`, targetRecord.data);
+
+    // 1. Loop through all 35 schema keys and write values
+    for (const [key, val] of Object.entries(targetRecord.data)) {
+      const el = document.getElementById(key);
+      if (el) {
+        el.value = val;
+        // Sync visual counter display values if relevant
+        const counterDisplay = document.getElementById(`val-${key}`);
+        if (counterDisplay) {
+          counterDisplay.textContent = val;
+        }
+      }
+    }
+
+    // 2. Set Alliance Styles
+    if (targetRecord.alliance) {
+      setAllianceStyle(targetRecord.alliance);
+    }
+
+    // 3. Set Segmented Yes/No buttons states
+    document.querySelectorAll(".segment-btn[data-field]").forEach(btn => {
+      const field = btn.getAttribute("data-field");
+      const val = btn.getAttribute("data-value");
+      if (targetRecord.data[field] === val) {
+        const container = btn.closest(".segmented-container");
+        container.querySelectorAll(".segment-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      }
+    });
+
+    // 4. Set Canvas coordinates pin if present
+    if (canvasInstance) {
+      // Look up coordinate floats in record database
+      const pinX = targetRecord.data.pinX !== undefined ? parseFloat(targetRecord.data.pinX) : null;
+      const pinY = targetRecord.data.pinY !== undefined ? parseFloat(targetRecord.data.pinY) : null;
+      if (pinX !== null && pinY !== null && !isNaN(pinX) && !isNaN(pinY)) {
+        activePinX = pinX;
+        activePinY = pinY;
+        canvasInstance.setPinPosition(activePinX, activePinY);
+      } else {
+        activePinX = null;
+        activePinY = null;
+        canvasInstance.clearPin();
+      }
+    }
+
+    // 5. Trigger active form autosave
+    triggerAutosave();
+
+    // 6. Navigate user to the Scouting Form tab
+    const scoutTabBtn = document.getElementById("tab-scout");
+    if (scoutTabBtn) {
+      scoutTabBtn.click();
+    }
+
+    showToast(`Audit Correction Mode: Team ${targetRecord.teamno} Match ${targetRecord.matchno} loaded!`);
+    alert(`AUDIT CORRECTION MODE ACTIVE:\n\nReview Team ${targetRecord.teamno} Match ${targetRecord.matchno}.\nCorrect the erroneous counts based on official FIRST score sheets, and click 'Submit Scouting Entry' to resubmit.`);
+  }
+
+  // Force approves/bypasses a validation discrepancy flag using the Admin Password
+  async function handleBypassAudit(recordId) {
+    const targetRecord = activeFlaggedRecords.find(r => r.id === recordId);
+    if (!targetRecord) return;
+
+    const pwd = prompt(`Force approve Team ${targetRecord.teamno} Match ${targetRecord.matchno}?\n\nEnter Lead Scout Password:`);
+    if (pwd === null) return; // cancelled
+    if (pwd.trim() === "") {
+      alert("Password cannot be blank.");
+      return;
+    }
+
+    showToast("Authenticating bypass credentials...");
+
+    try {
+      const endpoint = window.syncManager.getSyncEndpoint();
+      const payload = {
+        action: "bypassFlag",
+        recordId: recordId,
+        password: pwd.trim()
+      };
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error("HTTP connection error: status " + response.status);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === "success") {
+        showToast("Audit flag successfully bypassed!");
+        alert("Bypass Success: Record has been force-approved and returned to analytics.");
+        // Refresh flagged list
+        renderAuditLogsList();
+      } else {
+        alert("Bypass Denied: " + result.message);
+      }
+
+    } catch (err) {
+      console.error("[Audit] Bypass submission error:", err);
+      alert("Failed to connect to spreadsheet backend: " + err.message);
+    }
+  }
+
+  // Bind renderAuditLogsList globally so sync recovering can refresh it
+  window.renderAuditLogsList = renderAuditLogsList;
 
 });

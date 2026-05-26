@@ -5,6 +5,7 @@
 class ScoutingSyncManager {
   constructor() {
     this.syncEndpointKey = "scout_sync_endpoint_url";
+    this.isSyncing = false; // Concurrency lock semaphore
     
     // Strict schema order of the 35 target keys
     this.schemaKeys = [
@@ -172,6 +173,12 @@ class ScoutingSyncManager {
    * Synchronizes all unsynced local records to the target spreadsheet endpoint
    */
   async processSyncQueue() {
+    if (this.isSyncing) {
+      console.log("[Sync] Queue is already processing. Skipping concurrent run.");
+      return 0;
+    }
+    this.isSyncing = true;
+
     try {
       const unsyncedRecords = await window.dbManager.getUnsyncedRecords();
       if (unsyncedRecords.length === 0) {
@@ -220,6 +227,8 @@ class ScoutingSyncManager {
     } catch (err) {
       console.error("[Sync] Error running sync routine:", err);
       return 0;
+    } finally {
+      this.isSyncing = false;
     }
   }
 
