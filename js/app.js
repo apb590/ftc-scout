@@ -716,6 +716,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const response = await fetch(endpoint, {
         method: "POST",
+        mode: "cors",
+        redirect: "follow",
         headers: {
           "Content-Type": "text/plain"
         },
