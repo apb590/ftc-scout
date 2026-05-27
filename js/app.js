@@ -333,7 +333,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const teamno = document.getElementById("teamno").value;
 
     if (!username || !matchno || !teamno) {
-      alert("Please ensure Scouter Email, Match, and Team fields are completed!");
+      alert("Please ensure Scouter Name, Match, and Team fields are completed!");
+      return;
+    }
+
+    // Verify scouter name pattern (first_lastinitial e.g. alden_h)
+    const nameRegex = /^[a-zA-Z]+_[a-zA-Z]$/;
+    if (!nameRegex.test(username)) {
+      alert("Please enter Scouter Name in the correct format: first_lastinitial (e.g., alden_h)");
       return;
     }
 
@@ -355,7 +362,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         canvasInstance.clearPin();
       }
 
-      // Repopulate Scouter Email for next scout matches (UX helper)
+      // Repopulate Scouter Name for next scout matches (UX helper)
       document.getElementById("username").value = finalRecord.username;
 
       // 4. Trigger auto sync queue in background
@@ -375,6 +382,38 @@ document.addEventListener("DOMContentLoaded", async () => {
       alert("Failed to save scouting record offline: " + err.message);
     }
   });
+
+  // Safe Form Clearing & Reset handler (Preserves Scouter Name, clears draft buffers)
+  const clearFormBtn = document.getElementById("clear-form-btn");
+  if (clearFormBtn) {
+    clearFormBtn.addEventListener("click", async () => {
+      const confirmClear = confirm("⚠️ Reset Scouting Form?\n\nAre you sure you want to clear the entire form? This will permanently wipe all of your current unsaved match inputs.");
+      if (confirmClear) {
+        // Save the scouter name so it doesn't get lost
+        const savedName = document.getElementById("username").value;
+        
+        // Reset form controls
+        form.reset();
+        resetFormCounters();
+        activePinX = null;
+        activePinY = null;
+        if (canvasInstance) {
+          canvasInstance.clearPin();
+        }
+        
+        // Restore scouter name
+        document.getElementById("username").value = savedName;
+        
+        // Clear IndexedDB active draft buffer to prevent auto-restoring
+        await window.dbManager.clearDraft();
+        
+        showToast("Scouting Form Reset Successfully!");
+        
+        // Scroll smoothly to top
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+  }
 
   function resetFormCounters() {
     const counterFields = [

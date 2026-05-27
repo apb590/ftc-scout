@@ -61,9 +61,11 @@
         <div class="premium-card">
           <h2 class="card-title">Match Setup</h2>
           
+          <button type="button" class="btn-secondary" id="clear-form-btn" style="margin-bottom: 16px; border-color: var(--color-error); color: var(--color-error); background: rgba(239, 68, 68, 0.05); font-weight: 700;">Reset / Clear Scouting Form</button>
+
           <div class="input-group">
-            <label class="input-label" for="username">Scouter Email (Login ID) *</label>
-            <input type="email" id="username" class="input-control" placeholder="scouter@team.com" required>
+            <label class="input-label" for="username">Scouter Name (first_lastinitial) *</label>
+            <input type="text" id="username" class="input-control" placeholder="e.g. alden_h" required pattern="^[a-zA-Z]+_[a-zA-Z]$" title="Please enter in first_lastinitial format (e.g., alden_h)">
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
