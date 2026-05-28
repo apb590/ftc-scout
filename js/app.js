@@ -122,6 +122,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const hiddenInput = document.getElementById(fieldId);
       if (hiddenInput) {
         hiddenInput.value = value;
+        if (fieldId === "breaks") {
+          toggleMalfunctionsContainer(value);
+        }
         triggerAutosave();
       }
     });
@@ -321,7 +324,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       "auto_penal", "telesetup", "close_made", "close_miss", "close_ovw",
       "far_made", "far_miss", "far_ovw", "gate_opn", "tele_collection",
       "tele_pattern", "tele_range", "defense", "timetopark", "park_base",
-      "park_bonus", "tele_penal", "breaks", "comments", "username"
+      "park_bonus", "tele_penal", "breaks", "comments", "username", "malfunctions"
     ];
 
     elementsToIngest.forEach(key => {
@@ -377,6 +380,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           const container = btn.closest(".segmented-container");
           container.querySelectorAll(".segment-btn").forEach(b => b.classList.remove("active"));
           btn.classList.add("active");
+          if (field === "breaks") {
+            toggleMalfunctionsContainer(val);
+          }
         }
       });
 
@@ -810,6 +816,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const finalRecord = compileFormStateJSON();
     
+    // Auto-prepend malfunctions to comments if breaks === Yes and malfunctions are selected
+    const breaksEl = document.getElementById("breaks");
+    const malfunctionsEl = document.getElementById("malfunctions");
+    if (breaksEl && breaksEl.value === "Yes" && malfunctionsEl && malfunctionsEl.value) {
+      const prefix = `[Failures: ${malfunctionsEl.value}]`;
+      let currentComments = finalRecord.comments || "";
+      if (!currentComments.startsWith("[Failures:")) {
+        finalRecord.comments = `${prefix} ${currentComments}`.trim();
+      } else {
+        currentComments = currentComments.replace(/^\[Failures:[^\]]+\]\s*/, "");
+        finalRecord.comments = `${prefix} ${currentComments}`.trim();
+      }
+    }
+
     // Intercept with real-time Out-of-Bounds guard check (Limits: 20 auton, 50 teleop)
     const autoElements = (parseInt(finalRecord.preload_made) || 0) + (parseInt(finalRecord.pickup_made) || 0) + (parseInt(finalRecord.pickup_ovw) || 0);
     const teleOpElements = (parseInt(finalRecord.close_made) || 0) + (parseInt(finalRecord.far_made) || 0) + (parseInt(finalRecord.close_ovw) || 0) + (parseInt(finalRecord.far_ovw) || 0);
@@ -926,6 +946,70 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Navigate back to Setup phase
     navigateToPhase("step-setup");
+  }
+
+  function toggleMalfunctionsContainer(value) {
+    const container = document.getElementById("malfunctions-container");
+    if (!container) return;
+    if (value === "Yes") {
+      container.style.display = "block";
+    } else {
+      container.style.display = "none";
+      // Clear malfunctions hidden input and button active states when set to No
+      const hiddenInput = document.getElementById("malfunctions");
+      if (hiddenInput) {
+        hiddenInput.value = "";
+      }
+      container.querySelectorAll(".toggle-checkbox-btn").forEach(btn => btn.classList.remove("active"));
+    }
+  }
+
+  function parseCommentsAndExtractMalfunctions() {
+    const commentsEl = document.getElementById("comments");
+    if (!commentsEl) return;
+    
+    let text = commentsEl.value || "";
+    const match = text.match(/^\[Failures:\s*([^\]]+)\]\s*/);
+    if (match) {
+      const malfunctionsList = match[1];
+      // Clean up the comments field text in UI
+      commentsEl.value = text.replace(/^\[Failures:\s*([^\]]+)\]\s*/, "");
+      
+      // Set malfunctions input value
+      const malfunctionsInput = document.getElementById("malfunctions");
+      if (malfunctionsInput) {
+        malfunctionsInput.value = malfunctionsList;
+      }
+      
+      // Toggle breaks to Yes
+      const breaksInput = document.getElementById("breaks");
+      if (breaksInput) {
+        breaksInput.value = "Yes";
+      }
+      
+      // Update segmented button active styles for breaks
+      document.querySelectorAll(".segment-btn[data-field='breaks']").forEach(btn => {
+        if (btn.getAttribute("data-value") === "Yes") {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+      
+      // Show container and active buttons
+      toggleMalfunctionsContainer("Yes");
+      const activeVals = malfunctionsList.split(", ").map(v => v.trim()).filter(Boolean);
+      const container = document.getElementById("malfunctions-container");
+      if (container) {
+        container.querySelectorAll(".toggle-checkbox-btn").forEach(btn => {
+          if (activeVals.includes(btn.getAttribute("data-value"))) {
+            btn.classList.add("active");
+          } else {
+            btn.classList.remove("active");
+          }
+        });
+      }
+    }
   }
 
   let toastTimeout = null;
@@ -1200,8 +1284,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         const container = btn.closest(".segmented-container");
         container.querySelectorAll(".segment-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
+        if (field === "breaks") {
+          toggleMalfunctionsContainer(val);
+        }
       }
     });
+
+    // 3b. Restore penalty toggle checkbox buttons active states (specifically for malfunctions)
+    document.querySelectorAll(".toggle-checkbox-container").forEach(container => {
+      const field = container.getAttribute("data-field");
+      const val = targetRecord.data[field] || "";
+      const activeVals = val.split(", ").map(v => v.trim()).filter(Boolean);
+      
+      container.querySelectorAll(".toggle-checkbox-btn").forEach(btn => {
+        const btnVal = btn.getAttribute("data-value");
+        if (activeVals.includes(btnVal)) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+    });
+
+    // 3c. Extract malfunctions from comments in correction mode
+    parseCommentsAndExtractMalfunctions();
 
     // 4. Set Canvas coordinates pin if present
     if (canvasInstance) {

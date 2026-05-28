@@ -465,8 +465,7 @@
                 </select>
               </div>
             </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div style="margin-bottom: 16px;">
               <div class="input-group" style="margin-bottom: 0;">
                 <label class="input-label">Robot Suffered Failures?</label>
                 <div class="segmented-container">
@@ -479,7 +478,21 @@
                 </div>
                 <input type="hidden" id="breaks" value="No">
               </div>
-              <div class="input-group" style="margin-bottom: 0;"></div>
+
+              <!-- Malfunctions checklist (revealed conditionally when breaks === Yes) -->
+              <div class="input-group" id="malfunctions-container" style="display: none; margin-top: 12px;">
+                <label class="input-label">Select Malfunction Types (Select all that apply)</label>
+                <div class="toggle-checkbox-container" data-field="malfunctions">
+                  <button type="button" class="toggle-checkbox-btn" data-value="Intake Jam">Intake Jam</button>
+                  <button type="button" class="toggle-checkbox-btn" data-value="Shooter Issue">Shooter Issue</button>
+                  <button type="button" class="toggle-checkbox-btn" data-value="Indexer Jam">Indexer Jam</button>
+                  <button type="button" class="toggle-checkbox-btn" data-value="Comm Loss">Comm Loss</button>
+                  <button type="button" class="toggle-checkbox-btn" data-value="Tipped/Stuck">Tipped/Stuck</button>
+                  <button type="button" class="toggle-checkbox-btn" data-value="Drive Limited">Drive Limited</button>
+                  <button type="button" class="toggle-checkbox-btn" data-value="Battery/Power">Battery/Power</button>
+                </div>
+                <input type="hidden" id="malfunctions" value="">
+              </div>
             </div>
 
             <div class="input-group">
