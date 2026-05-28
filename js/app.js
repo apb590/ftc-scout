@@ -343,16 +343,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     matchnoInput.addEventListener("change", updateTeamSelector);
   }
 
+  const testMatchNumbers = [123, 999, 9999, 1234, 1000];
+
   function updateTeamSelector() {
     if (!matchnoInput || !teamnoContainer) return;
     
     const matchVal = parseInt(matchnoInput.value);
-    const savedSchedule = localStorage.getItem("qual_schedule");
-    const schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
+    const testDataBanner = document.getElementById("test-data-banner");
     
-    // Find if the match is in the schedule
-    if (matchVal && schedule && schedule[matchVal]) {
-      const matchDetails = schedule[matchVal];
+    // Check if it is a test match number
+    if (testMatchNumbers.includes(matchVal)) {
+      if (testDataBanner) {
+        testDataBanner.style.display = "block";
+      }
       
       let teamSelect = document.getElementById("teamno");
       if (!teamSelect || teamSelect.tagName !== "SELECT") {
@@ -365,9 +368,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         teamnoContainer.appendChild(selectEl);
         teamSelect = selectEl;
         
-        // Add event listeners to the new select to autosave and update alliance color
+        // Add event listeners to autosave and update alliance color based on test team
         teamSelect.addEventListener("change", () => {
-          updateAllianceColorForTeam(teamSelect.value, matchDetails);
+          const selectedTeam = parseInt(teamSelect.value);
+          if (selectedTeam === 88881 || selectedTeam === 88882) {
+            setAllianceStyle("Red");
+          } else if (selectedTeam === 88883 || selectedTeam === 88884) {
+            setAllianceStyle("Blue");
+          }
           triggerAutosave();
         });
       }
@@ -375,51 +383,113 @@ document.addEventListener("DOMContentLoaded", async () => {
       const currentValue = teamSelect.value;
       teamSelect.innerHTML = "";
       
-      // Default placeholder option
+      // Default placeholder
       const defaultOpt = document.createElement("option");
       defaultOpt.value = "";
-      defaultOpt.textContent = "-- Select Team --";
+      defaultOpt.textContent = "-- Select Test Team --";
       teamSelect.appendChild(defaultOpt);
       
-      const teams = [
-        { num: matchDetails.red1, label: `${matchDetails.red1} (Red)`, alliance: "Red" },
-        { num: matchDetails.red2, label: `${matchDetails.red2} (Red)`, alliance: "Red" },
-        { num: matchDetails.blue1, label: `${matchDetails.blue1} (Blue)`, alliance: "Blue" },
-        { num: matchDetails.blue2, label: `${matchDetails.blue2} (Blue)`, alliance: "Blue" }
+      const testTeams = [
+        { num: 88881, label: "88881 (Red Test Team)", alliance: "Red" },
+        { num: 88882, label: "88882 (Red Test Team)", alliance: "Red" },
+        { num: 88883, label: "88883 (Blue Test Team)", alliance: "Blue" },
+        { num: 88884, label: "88884 (Blue Test Team)", alliance: "Blue" }
       ];
       
-      teams.forEach(t => {
-        if (t.num) {
-          const opt = document.createElement("option");
-          opt.value = t.num;
-          opt.textContent = t.label;
-          teamSelect.appendChild(opt);
+      testTeams.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.num;
+        opt.textContent = t.label;
+        if (t.alliance === "Red") {
+          opt.style.color = "var(--color-error)";
+        } else {
+          opt.style.color = "#2563eb";
         }
+        teamSelect.appendChild(opt);
       });
       
-      // Try to preserve previous selection if it's one of the 4 teams
-      if (currentValue && teams.some(t => String(t.num) === String(currentValue))) {
+      if (currentValue && testTeams.some(t => String(t.num) === String(currentValue))) {
         teamSelect.value = currentValue;
       }
     } else {
-      // Restore input type="number"
-      let teamInput = document.getElementById("teamno");
-      if (!teamInput || teamInput.tagName !== "INPUT") {
-        const inputEl = document.createElement("input");
-        inputEl.type = "number";
-        inputEl.id = "teamno";
-        inputEl.className = "input-control";
-        inputEl.placeholder = "e.g. 16379";
-        inputEl.min = "1";
-        inputEl.required = true;
+      if (testDataBanner) {
+        testDataBanner.style.display = "none";
+      }
+      
+      const savedSchedule = localStorage.getItem("qual_schedule");
+      const schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
+      
+      // Find if the match is in the schedule
+      if (matchVal && schedule && schedule[matchVal]) {
+        const matchDetails = schedule[matchVal];
         
-        teamnoContainer.innerHTML = "";
-        teamnoContainer.appendChild(inputEl);
-        teamInput = inputEl;
+        let teamSelect = document.getElementById("teamno");
+        if (!teamSelect || teamSelect.tagName !== "SELECT") {
+          const selectEl = document.createElement("select");
+          selectEl.id = "teamno";
+          selectEl.className = "input-control";
+          selectEl.required = true;
+          
+          teamnoContainer.innerHTML = "";
+          teamnoContainer.appendChild(selectEl);
+          teamSelect = selectEl;
+          
+          // Add event listeners to the new select to autosave and update alliance color
+          teamSelect.addEventListener("change", () => {
+            updateAllianceColorForTeam(teamSelect.value, matchDetails);
+            triggerAutosave();
+          });
+        }
         
-        // Add event listeners
-        teamInput.addEventListener("input", triggerAutosave);
-        teamInput.addEventListener("change", triggerAutosave);
+        const currentValue = teamSelect.value;
+        teamSelect.innerHTML = "";
+        
+        // Default placeholder option
+        const defaultOpt = document.createElement("option");
+        defaultOpt.value = "";
+        defaultOpt.textContent = "-- Select Team --";
+        teamSelect.appendChild(defaultOpt);
+        
+        const teams = [
+          { num: matchDetails.red1, label: `${matchDetails.red1} (Red)`, alliance: "Red" },
+          { num: matchDetails.red2, label: `${matchDetails.red2} (Red)`, alliance: "Red" },
+          { num: matchDetails.blue1, label: `${matchDetails.blue1} (Blue)`, alliance: "Blue" },
+          { num: matchDetails.blue2, label: `${matchDetails.blue2} (Blue)`, alliance: "Blue" }
+        ];
+        
+        teams.forEach(t => {
+          if (t.num) {
+            const opt = document.createElement("option");
+            opt.value = t.num;
+            opt.textContent = t.label;
+            teamSelect.appendChild(opt);
+          }
+        });
+        
+        // Try to preserve previous selection if it's one of the 4 teams
+        if (currentValue && teams.some(t => String(t.num) === String(currentValue))) {
+          teamSelect.value = currentValue;
+        }
+      } else {
+        // Restore input type="number"
+        let teamInput = document.getElementById("teamno");
+        if (!teamInput || teamInput.tagName !== "INPUT") {
+          const inputEl = document.createElement("input");
+          inputEl.type = "number";
+          inputEl.id = "teamno";
+          inputEl.className = "input-control";
+          inputEl.placeholder = "e.g. 16379";
+          inputEl.min = "1";
+          inputEl.required = true;
+          
+          teamnoContainer.innerHTML = "";
+          teamnoContainer.appendChild(inputEl);
+          teamInput = inputEl;
+          
+          // Add event listeners
+          teamInput.addEventListener("input", triggerAutosave);
+          teamInput.addEventListener("change", triggerAutosave);
+        }
       }
     }
   }
@@ -436,6 +506,188 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Expose updateTeamSelector globally
   window.updateTeamSelector = updateTeamSelector;
+
+  // Step-by-Step Phase Routing Navigation
+  const phaseSteps = document.querySelectorAll(".phase-step");
+  const progressSteps = document.querySelectorAll(".progress-step");
+  const progressLineFill = document.getElementById("phase-progress-line-fill");
+
+  let currentPhaseIndex = 0; // 0: setup, 1: auton, 2: teleop, 3: review
+  const phaseIds = ["step-setup", "step-auton", "step-teleop", "step-review"];
+
+  function validateSetupPhase() {
+    const username = document.getElementById("username").value.trim();
+    const matchno = document.getElementById("matchno").value;
+    const teamno = document.getElementById("teamno").value;
+
+    if (!username || !matchno || !teamno) {
+      alert("Please ensure Scouter Name, Match, and Team fields are completed!");
+      return false;
+    }
+
+    const nameRegex = /^[a-zA-Z]+_[a-zA-Z]$/;
+    if (!nameRegex.test(username)) {
+      alert("Please enter Scouter Name in first_lastinitial format (e.g., alden_h)");
+      return false;
+    }
+    return true;
+  }
+
+  function navigateToPhase(phaseId) {
+    const targetIndex = phaseIds.indexOf(phaseId);
+    if (targetIndex === -1) return;
+
+    // If navigating forward from Setup phase, validate fields first!
+    if (currentPhaseIndex === 0 && targetIndex > 0) {
+      if (!validateSetupPhase()) return;
+    }
+
+    // Deactivate current step
+    phaseSteps.forEach(step => step.classList.remove("active"));
+    progressSteps.forEach(step => step.classList.remove("active"));
+
+    // Activate target step
+    const targetStep = document.getElementById(phaseId);
+    if (targetStep) {
+      targetStep.classList.add("active");
+    }
+
+    // Set active class on progress indicators
+    for (let i = 0; i <= targetIndex; i++) {
+      const indicator = document.querySelector(`.progress-step[data-step="${phaseIds[i]}"]`);
+      if (indicator) {
+        if (i === targetIndex) {
+          indicator.classList.add("active");
+          indicator.classList.remove("completed");
+        } else {
+          indicator.classList.add("completed");
+        }
+      }
+    }
+    
+    // Remove active and completed classes from forward steps
+    for (let i = targetIndex + 1; i < phaseIds.length; i++) {
+      const indicator = document.querySelector(`.progress-step[data-step="${phaseIds[i]}"]`);
+      if (indicator) {
+        indicator.classList.remove("active");
+        indicator.classList.remove("completed");
+      }
+    }
+
+    // Animate progress connecting line fill width
+    if (progressLineFill) {
+      const percentage = (targetIndex / (phaseIds.length - 1)) * 100;
+      progressLineFill.style.width = `${percentage}%`;
+    }
+
+    currentPhaseIndex = targetIndex;
+    
+    // Smooth scroll to top of page
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Redraw map canvas if setup step is active
+    if (phaseId === "step-setup" && canvasInstance) {
+      setTimeout(() => canvasInstance.draw(), 50);
+    }
+  }
+
+  // Bind next/prev button clicks
+  document.querySelectorAll(".btn-next").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const nextPhaseId = btn.getAttribute("data-next");
+      navigateToPhase(nextPhaseId);
+    });
+  });
+
+  document.querySelectorAll(".btn-prev").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const prevPhaseId = btn.getAttribute("data-prev");
+      navigateToPhase(prevPhaseId);
+    });
+  });
+
+  // Bind clicks on progress tracker circles/labels to jump directly
+  progressSteps.forEach(step => {
+    step.addEventListener("click", () => {
+      const targetPhaseId = step.getAttribute("data-step");
+      navigateToPhase(targetPhaseId);
+    });
+  });
+
+  // Event-Based Actions Logging & Undo Stack Logic
+  let actionHistoryStack = [];
+  
+  function logEventAction(phase, field, increment = 1) {
+    const hiddenInput = document.getElementById(field);
+    const displayVal = document.getElementById(`val-${field}`);
+    if (hiddenInput) {
+      let current = parseInt(hiddenInput.value) || 0;
+      current += increment;
+      hiddenInput.value = current;
+      if (displayVal) {
+        displayVal.textContent = current;
+      }
+      
+      // Push to the event stack
+      actionHistoryStack.push({ phase, field, increment });
+      console.log(`[Event Log] Added action to stack:`, { phase, field, increment }, `Stack Size: ${actionHistoryStack.length}`);
+      
+      triggerAutosave();
+    }
+  }
+
+  function handleUndoAction(phase) {
+    // Search stack right-to-left for the last action matching this phase
+    for (let i = actionHistoryStack.length - 1; i >= 0; i--) {
+      if (actionHistoryStack[i].phase === phase) {
+        const action = actionHistoryStack[i];
+        
+        // Remove from stack
+        actionHistoryStack.splice(i, 1);
+        
+        // Revert count
+        const hiddenInput = document.getElementById(action.field);
+        const displayVal = document.getElementById(`val-${action.field}`);
+        if (hiddenInput) {
+          let current = parseInt(hiddenInput.value) || 0;
+          current = Math.max(0, current - action.increment);
+          hiddenInput.value = current;
+          if (displayVal) {
+            displayVal.textContent = current;
+          }
+        }
+        
+        console.log(`[Undo Action] Reverted action from stack:`, action, `Stack Size: ${actionHistoryStack.length}`);
+        triggerAutosave();
+        showToast("Last score action reverted!");
+        return;
+      }
+    }
+    showToast("No scoring history found to undo!");
+  }
+
+  // Bind Action Event logging buttons
+  document.querySelectorAll(".event-log-btn[data-action]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const field = btn.getAttribute("data-action");
+      const add = parseInt(btn.getAttribute("data-add")) || 1;
+      let phase = "auton";
+      if (field.startsWith("close")) {
+        phase = "close";
+      } else if (field.startsWith("far")) {
+        phase = "far";
+      }
+      logEventAction(phase, field, add);
+    });
+  });
+
+  // Bind Undo buttons
+  document.querySelectorAll(".event-log-btn[data-undo]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const phase = btn.getAttribute("data-undo");
+      handleUndoAction(phase);
+    });
+  });
 
   // Restore draft state immediately on load
   await restoreFormStateDraft();
@@ -462,6 +714,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const finalRecord = compileFormStateJSON();
+    
+    // Intercept with real-time Out-of-Bounds guard check (Limits: 20 auton, 50 teleop)
+    const autoElements = (parseInt(finalRecord.preload_made) || 0) + (parseInt(finalRecord.pickup_made) || 0) + (parseInt(finalRecord.pickup_ovw) || 0);
+    const teleOpElements = (parseInt(finalRecord.close_made) || 0) + (parseInt(finalRecord.far_made) || 0) + (parseInt(finalRecord.close_ovw) || 0) + (parseInt(finalRecord.far_ovw) || 0);
+    
+    if (autoElements > 20 || teleOpElements > 50) {
+      const confirmSubmit = confirm(`⚠️ HIGH SCORING OUTLIER DETECTED!\n\n- Auton Elements Scored: ${autoElements} (Warning limit: 20)\n- Teleop Elements Scored: ${teleOpElements} (Warning limit: 50)\n\nThese values are exceptionally high and might indicate double-tapping errors. Are you absolutely certain these match counts are correct?`);
+      if (!confirmSubmit) return;
+    }
     
     try {
       // 1. Save finalized record to IndexedDB
@@ -536,8 +797,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function resetFormCounters() {
     const counterFields = [
-      "preload_made", "preload_miss", "pickup_made", "pickup_miss",
-      "close_made", "close_miss", "far_made", "far_miss"
+      "preload_made", "preload_miss", "pickup_made", "pickup_miss", "pickup_ovw",
+      "close_made", "close_miss", "close_ovw", "far_made", "far_miss", "far_ovw"
     ];
     counterFields.forEach(field => {
       const hidden = document.getElementById(field);
@@ -546,13 +807,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (display) display.textContent = 0;
     });
 
+    // Reset action history stack
+    actionHistoryStack = [];
+
     // Reset segmented selector states back to default (No / No failures)
     document.querySelectorAll(".segment-btn[data-value='No']").forEach(btn => {
       btn.click();
     });
+
+    // Navigate back to Setup phase
+    navigateToPhase("step-setup");
   }
 
-  // 11. Custom Toast Notification Banner
   let toastTimeout = null;
   function showToast(message) {
     clearTimeout(toastTimeout);
