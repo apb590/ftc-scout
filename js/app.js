@@ -382,10 +382,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       teamSelect.appendChild(defaultOpt);
       
       const teams = [
-        { num: matchDetails.red1, label: `${matchDetails.red1} (Red 1)`, alliance: "Red" },
-        { num: matchDetails.red2, label: `${matchDetails.red2} (Red 2)`, alliance: "Red" },
-        { num: matchDetails.blue1, label: `${matchDetails.blue1} (Blue 1)`, alliance: "Blue" },
-        { num: matchDetails.blue2, label: `${matchDetails.blue2} (Blue 2)`, alliance: "Blue" }
+        { num: matchDetails.red1, label: `${matchDetails.red1} (Red)`, alliance: "Red" },
+        { num: matchDetails.red2, label: `${matchDetails.red2} (Red)`, alliance: "Red" },
+        { num: matchDetails.blue1, label: `${matchDetails.blue1} (Blue)`, alliance: "Blue" },
+        { num: matchDetails.blue2, label: `${matchDetails.blue2} (Blue)`, alliance: "Blue" }
       ];
       
       teams.forEach(t => {
