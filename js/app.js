@@ -473,6 +473,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // 3. Reset form states (Counters back to 0, clear canvas pin)
       form.reset();
       resetFormCounters();
+      updateTeamSelector();
       activePinX = null;
       activePinY = null;
       if (canvasInstance) {
@@ -512,6 +513,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Reset form controls
         form.reset();
         resetFormCounters();
+        updateTeamSelector();
         activePinX = null;
         activePinY = null;
         if (canvasInstance) {
