@@ -15,7 +15,6 @@ class ScoutingCanvas {
     // Field backdrop URL assets
     this.images = {
       default: "https://raw.githubusercontent.com/acmerobotics/MeepMeep/cd0a88ff91a5fd7fa740d0d95dfea60ba14f656c/src/main/resources/background/season-2025-decode/field-2025-official.png",
-      dark: "https://raw.githubusercontent.com/acmerobotics/MeepMeep/cd0a88ff91a5fd7fa740d0d95dfea60ba14f656c/src/main/resources/background/season-2025-decode/field-2025-juice-black.png",
       light: "https://raw.githubusercontent.com/acmerobotics/MeepMeep/cd0a88ff91a5fd7fa740d0d95dfea60ba14f656c/src/main/resources/background/season-2025-decode/field-2025-juice-light.png"
     };
 
@@ -39,32 +38,44 @@ class ScoutingCanvas {
   }
 
   /**
-   * Preload all three image assets to allow instant switching
+   * Preload default image, loading light as backup
    */
   preloadImages() {
-    let loadedCount = 0;
-    const totalCount = Object.keys(this.images).length;
+    const imagesToLoad = {
+      default: this.images.default,
+      light: this.images.light
+    };
 
-    for (const [key, url] of Object.entries(this.images)) {
+    let loadedCount = 0;
+    const totalCount = Object.keys(imagesToLoad).length;
+
+    for (const [key, url] of Object.entries(imagesToLoad)) {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.src = url;
       img.onload = () => {
         loadedCount++;
         this.imgObjects[key] = img;
-        if (loadedCount === totalCount) {
+        if (key === "default") {
           this.imagesLoaded = true;
           this.draw();
         }
       };
       img.onerror = () => {
         console.error(`[Canvas] Failed to load image: ${key} (${url})`);
+        loadedCount++;
+        if (key === "default") {
+          // Fallback to light theme on default load failure
+          this.currentTheme = "light";
+          this.imagesLoaded = true;
+          this.draw();
+        }
       };
     }
   }
 
   /**
-   * Set field map image theme dynamically
+   * Set theme
    */
   setTheme(theme) {
     if (this.images[theme]) {

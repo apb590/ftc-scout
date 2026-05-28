@@ -137,9 +137,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       triggerAutosave();
     });
 
-    // Populate canvas theme from local setting
-    const savedTheme = localStorage.getItem("scout_canvas_backdrop") || "default";
-    canvasInstance.setTheme(savedTheme);
+    // Start map loaded to default view style
+    canvasInstance.setTheme("default");
   }
 
   // 7. Digital Counter Incrementor Modifier Handles
@@ -185,12 +184,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const closeSettingsBtn = document.getElementById("close-settings-modal-btn");
   const saveSettingsBtn = document.getElementById("save-settings-btn");
   const settingSyncUrlInput = document.getElementById("setting-sync-endpoint");
-  const settingThemeSelect = document.getElementById("setting-canvas-backdrop");
 
   openSettingsBtn.addEventListener("click", () => {
     // Populate current local settings values
     settingSyncUrlInput.value = window.syncManager.getSyncEndpoint();
-    settingThemeSelect.value = localStorage.getItem("scout_canvas_backdrop") || "default";
     settingsModal.classList.add("active");
   });
 
@@ -200,19 +197,90 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   saveSettingsBtn.addEventListener("click", () => {
     const newEndpoint = settingSyncUrlInput.value.trim();
-    const newTheme = settingThemeSelect.value;
 
     if (newEndpoint) {
       window.syncManager.setSyncEndpoint(newEndpoint);
     }
-    
-    localStorage.setItem("scout_canvas_backdrop", newTheme);
-    if (canvasInstance) {
-      canvasInstance.setTheme(newTheme);
-    }
 
     settingsModal.classList.remove("active");
     showToast("Settings Saved Successfully!");
+  });
+
+  // --- Upgraded Custom Webapp UI Controls ---
+  // A. Preload Log Actions (Strict 3 Max sum combined between Scored & Missed)
+  const btnPreloadMade = document.getElementById("btn-preload-made");
+  const btnPreloadMiss = document.getElementById("btn-preload-miss");
+  const preloadMadeInput = document.getElementById("preload_made");
+  const preloadMissInput = document.getElementById("preload_miss");
+
+  if (btnPreloadMade && btnPreloadMiss && preloadMadeInput && preloadMissInput) {
+    btnPreloadMade.addEventListener("click", () => {
+      const made = parseInt(preloadMadeInput.value) || 0;
+      const miss = parseInt(preloadMissInput.value) || 0;
+      if (made + miss >= 3) {
+        showToast("Maximum of 3 combined preloads reached!");
+        return;
+      }
+      preloadMadeInput.value = made + 1;
+      document.getElementById("val-preload_made").textContent = made + 1;
+      actionHistoryStack.push({ phase: "preload", field: "preload_made", increment: 1 });
+      triggerAutosave();
+    });
+
+    btnPreloadMiss.addEventListener("click", () => {
+      const made = parseInt(preloadMadeInput.value) || 0;
+      const miss = parseInt(preloadMissInput.value) || 0;
+      if (made + miss >= 3) {
+        showToast("Maximum of 3 combined preloads reached!");
+        return;
+      }
+      preloadMissInput.value = miss + 1;
+      document.getElementById("val-preload_miss").textContent = miss + 1;
+      actionHistoryStack.push({ phase: "preload", field: "preload_miss", increment: 1 });
+      triggerAutosave();
+    });
+  }
+
+  // B. Generic Mutually-Exclusive Range & Parking Toggles
+  document.querySelectorAll(".range-toggle-btn[data-field]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const fieldId = btn.getAttribute("data-field");
+      const val = btn.getAttribute("data-value");
+      const hiddenInput = document.getElementById(fieldId);
+      
+      if (hiddenInput) {
+        const container = btn.closest(".range-toggle-container");
+        
+        if (btn.classList.contains("active")) {
+          // Deactivate
+          btn.classList.remove("active");
+          hiddenInput.value = fieldId === "auto_range" ? "No shots taken / unknown" : "None";
+        } else {
+          // Activate this one, deactivate siblings
+          container.querySelectorAll(".range-toggle-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          hiddenInput.value = val;
+        }
+        triggerAutosave();
+      }
+    });
+  });
+
+  // C. Tap-to-Toggle Penalty Checkbox Grids
+  document.querySelectorAll(".toggle-checkbox-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      btn.classList.toggle("active");
+      const container = btn.closest(".toggle-checkbox-container");
+      const fieldId = container.getAttribute("data-field");
+      const hiddenInput = document.getElementById(fieldId);
+      
+      if (hiddenInput) {
+        const activeVals = Array.from(container.querySelectorAll(".toggle-checkbox-btn.active"))
+          .map(b => b.getAttribute("data-value"));
+        hiddenInput.value = activeVals.join(", ");
+        triggerAutosave();
+      }
+    });
   });
 
   // 9. Active Form Buffer Autosave Trigger
@@ -321,6 +389,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (teamSelector && draft.teamno) {
         teamSelector.value = draft.teamno;
       }
+
+      // Restore Shooting Range toggles & Auton Parking toggles
+      document.querySelectorAll(".range-toggle-btn[data-field]").forEach(btn => {
+        const field = btn.getAttribute("data-field");
+        const val = btn.getAttribute("data-value");
+        if (draft[field] === val) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+
+      // Restore penalty toggle checkbox buttons active states
+      document.querySelectorAll(".toggle-checkbox-container").forEach(container => {
+        const field = container.getAttribute("data-field");
+        const val = draft[field] || "";
+        const activeVals = val.split(", ").map(v => v.trim()).filter(Boolean);
+        
+        container.querySelectorAll(".toggle-checkbox-btn").forEach(btn => {
+          const btnVal = btn.getAttribute("data-value");
+          if (activeVals.includes(btnVal)) {
+            btn.classList.add("active");
+          } else {
+            btn.classList.remove("active");
+          }
+        });
+      });
 
       // Restore Canvas Pin crosshair overlay
       if (draft.pinX !== null && draft.pinY !== null && canvasInstance) {
@@ -809,6 +904,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Reset action history stack
     actionHistoryStack = [];
+
+    // Reset range and parking toggles
+    document.querySelectorAll(".range-toggle-btn[data-field]").forEach(btn => btn.classList.remove("active"));
+    const autoRangeInput = document.getElementById("auto_range");
+    if (autoRangeInput) autoRangeInput.value = "No shots taken / unknown";
+    const autoParkInput = document.getElementById("auto_park");
+    if (autoParkInput) autoParkInput.value = "None";
+
+    // Reset penalty toggle checkbox buttons
+    document.querySelectorAll(".toggle-checkbox-btn").forEach(btn => btn.classList.remove("active"));
+    const autoPenalInput = document.getElementById("auto_penal");
+    if (autoPenalInput) autoPenalInput.value = "";
+    const telePenalInput = document.getElementById("tele_penal");
+    if (telePenalInput) telePenalInput.value = "";
 
     // Reset segmented selector states back to default (No / No failures)
     document.querySelectorAll(".segment-btn[data-value='No']").forEach(btn => {

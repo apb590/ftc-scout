@@ -924,3 +924,111 @@ textarea.input-control {
   opacity: 0.2;
 }
 
+/* Compact Teleop Layout for Mobile Viewports */
+.teleop-flex-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 480px) {
+  .teleop-flex-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+
+.teleop-compact-card {
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+
+/* Toggles and checklist styles with checkmark indicators */
+.toggle-checkbox-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (min-width: 360px) {
+  .toggle-checkbox-container {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.toggle-checkbox-btn {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.toggle-checkbox-btn.active {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+  color: var(--color-success);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+}
+
+.toggle-checkbox-btn::before {
+  content: "☐";
+  font-size: 1rem;
+}
+
+.toggle-checkbox-btn.active::before {
+  content: "✓";
+  font-weight: 800;
+}
+
+/* Range toggle buttons */
+.range-toggle-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.range-toggle-btn {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.range-toggle-btn.active {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #ffffff;
+  box-shadow: var(--shadow-glow);
+}
+
+/* Touch Action Zoom Prevention */
+button, .event-log-btn, .counter-btn, .toggle-checkbox-btn, .range-toggle-btn, .segment-btn {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
