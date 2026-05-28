@@ -7,6 +7,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     await window.dbManager.init();
     console.log("[App] Database initialized in app scope");
+    
+    // Fetch and cache the qualification schedule on startup if online
+    if (window.syncManager && navigator.onLine) {
+      window.syncManager.fetchAndCacheQualSchedule();
+    }
   } catch (err) {
     console.error("[App] Failed to load database layer:", err);
   }
@@ -308,6 +313,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       // Restore Canvas Pin crosshair overlay
+      // Morph the team number selector if match was restored
+      updateTeamSelector();
+      
+      // If team selector has a value, restore it as select option if applicable
+      const teamSelector = document.getElementById("teamno");
+      if (teamSelector && draft.teamno) {
+        teamSelector.value = draft.teamno;
+      }
+
+      // Restore Canvas Pin crosshair overlay
       if (draft.pinX !== null && draft.pinY !== null && canvasInstance) {
         activePinX = draft.pinX;
         activePinY = draft.pinY;
@@ -319,6 +334,108 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("[App] Error restoring form state draft:", e);
     }
   }
+
+  const matchnoInput = document.getElementById("matchno");
+  const teamnoContainer = document.getElementById("teamno-container");
+  
+  if (matchnoInput && teamnoContainer) {
+    matchnoInput.addEventListener("input", updateTeamSelector);
+    matchnoInput.addEventListener("change", updateTeamSelector);
+  }
+
+  function updateTeamSelector() {
+    if (!matchnoInput || !teamnoContainer) return;
+    
+    const matchVal = parseInt(matchnoInput.value);
+    const savedSchedule = localStorage.getItem("qual_schedule");
+    const schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
+    
+    // Find if the match is in the schedule
+    if (matchVal && schedule && schedule[matchVal]) {
+      const matchDetails = schedule[matchVal];
+      
+      let teamSelect = document.getElementById("teamno");
+      if (!teamSelect || teamSelect.tagName !== "SELECT") {
+        const selectEl = document.createElement("select");
+        selectEl.id = "teamno";
+        selectEl.className = "input-control";
+        selectEl.required = true;
+        
+        teamnoContainer.innerHTML = "";
+        teamnoContainer.appendChild(selectEl);
+        teamSelect = selectEl;
+        
+        // Add event listeners to the new select to autosave and update alliance color
+        teamSelect.addEventListener("change", () => {
+          updateAllianceColorForTeam(teamSelect.value, matchDetails);
+          triggerAutosave();
+        });
+      }
+      
+      const currentValue = teamSelect.value;
+      teamSelect.innerHTML = "";
+      
+      // Default placeholder option
+      const defaultOpt = document.createElement("option");
+      defaultOpt.value = "";
+      defaultOpt.textContent = "-- Select Team --";
+      teamSelect.appendChild(defaultOpt);
+      
+      const teams = [
+        { num: matchDetails.red1, label: `${matchDetails.red1} (Red 1)`, alliance: "Red" },
+        { num: matchDetails.red2, label: `${matchDetails.red2} (Red 2)`, alliance: "Red" },
+        { num: matchDetails.blue1, label: `${matchDetails.blue1} (Blue 1)`, alliance: "Blue" },
+        { num: matchDetails.blue2, label: `${matchDetails.blue2} (Blue 2)`, alliance: "Blue" }
+      ];
+      
+      teams.forEach(t => {
+        if (t.num) {
+          const opt = document.createElement("option");
+          opt.value = t.num;
+          opt.textContent = t.label;
+          teamSelect.appendChild(opt);
+        }
+      });
+      
+      // Try to preserve previous selection if it's one of the 4 teams
+      if (currentValue && teams.some(t => String(t.num) === String(currentValue))) {
+        teamSelect.value = currentValue;
+      }
+    } else {
+      // Restore input type="number"
+      let teamInput = document.getElementById("teamno");
+      if (!teamInput || teamInput.tagName !== "INPUT") {
+        const inputEl = document.createElement("input");
+        inputEl.type = "number";
+        inputEl.id = "teamno";
+        inputEl.className = "input-control";
+        inputEl.placeholder = "e.g. 16379";
+        inputEl.min = "1";
+        inputEl.required = true;
+        
+        teamnoContainer.innerHTML = "";
+        teamnoContainer.appendChild(inputEl);
+        teamInput = inputEl;
+        
+        // Add event listeners
+        teamInput.addEventListener("input", triggerAutosave);
+        teamInput.addEventListener("change", triggerAutosave);
+      }
+    }
+  }
+
+  function updateAllianceColorForTeam(selectedTeam, matchDetails) {
+    if (!selectedTeam || !matchDetails) return;
+    const teamNum = parseInt(selectedTeam);
+    if (teamNum === matchDetails.red1 || teamNum === matchDetails.red2) {
+      setAllianceStyle("Red");
+    } else if (teamNum === matchDetails.blue1 || teamNum === matchDetails.blue2) {
+      setAllianceStyle("Blue");
+    }
+  }
+
+  // Expose updateTeamSelector globally
+  window.updateTeamSelector = updateTeamSelector;
 
   // Restore draft state immediately on load
   await restoreFormStateDraft();
@@ -563,6 +680,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     showToast("Triggering forced ingestion sync...");
     
     if (window.syncManager) {
+      // Refresh qual schedule when forcing a sync
+      await window.syncManager.fetchAndCacheQualSchedule();
       const syncedCount = await window.syncManager.processSyncQueue();
       showToast(`Successfully synced ${syncedCount} entries!`);
     }
@@ -584,6 +703,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!navigator.onLine) {
       auditListContainer.innerHTML = `<div class="history-empty" style="color:var(--color-error)">Browser is Offline! Live sheet discrepancies cannot be queried while network is down.</div>`;
       return;
+    }
+
+    // Refresh qual schedule when loading audit panel to keep scouters up to date
+    if (window.syncManager) {
+      window.syncManager.fetchAndCacheQualSchedule();
     }
 
     auditListContainer.innerHTML = `<div class="history-empty animate-pulse">Querying Google Sheets for points discrepancies... Please wait.</div>`;

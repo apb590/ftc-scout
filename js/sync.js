@@ -266,6 +266,29 @@ class ScoutingSyncManager {
       console.error("[Sync] Failed to update state indicators:", e);
     }
   }
+
+  /**
+   * Fetches and caches the qualification schedule locally in localStorage
+   */
+  async fetchAndCacheQualSchedule() {
+    if (!navigator.onLine) return;
+    try {
+      const endpoint = this.getSyncEndpoint();
+      if (!endpoint) return;
+      const response = await fetch(`${endpoint}?action=getQualSchedule`);
+      if (response.ok) {
+        const schedule = await response.json();
+        localStorage.setItem("qual_schedule", JSON.stringify(schedule));
+        console.log("[Sync] Qual schedule successfully cached locally!");
+        // Update the form dropdown if the user has already typed a match number
+        if (window.updateTeamSelector) {
+          window.updateTeamSelector();
+        }
+      }
+    } catch (err) {
+      console.warn("[Sync] Failed to fetch qual schedule:", err);
+    }
+  }
 }
 
 // Export global sync manager instance
