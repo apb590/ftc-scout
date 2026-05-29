@@ -15,7 +15,8 @@ class ScoutingSyncManager {
       "auto_penal", "telesetup", "close_made", "close_miss", "close_ovw",
       "far_made", "far_miss", "far_ovw", "gate_opn", "tele_collection",
       "tele_pattern", "tele_range", "defense", "timetopark", "park_base",
-      "park_bonus", "tele_penal", "breaks", "comments", "username"
+      "park_bonus", "tele_penal", "breaks", "comments", "username",
+      "is_preevent", "upcoming_event", "scouted_event"
     ];
 
     // Listen to browser network changes
@@ -288,6 +289,57 @@ class ScoutingSyncManager {
     } catch (err) {
       console.warn("[Sync] Failed to fetch qual schedule:", err);
     }
+  }
+
+  /**
+   * Fetches the list of active events from the Google Sheet backend
+   */
+  async fetchEventConfig() {
+    if (!navigator.onLine) {
+      const cached = localStorage.getItem("event_config");
+      return cached ? JSON.parse(cached) : [];
+    }
+    try {
+      const endpoint = this.getSyncEndpoint();
+      if (!endpoint) return [];
+      const response = await fetch(`${endpoint}?action=getEventConfig`);
+      if (response.ok) {
+        const events = await response.json();
+        localStorage.setItem("event_config", JSON.stringify(events));
+        console.log("[Sync] Event config successfully fetched and cached locally!");
+        return events;
+      }
+    } catch (err) {
+      console.warn("[Sync] Failed to fetch event config:", err);
+    }
+    const cached = localStorage.getItem("event_config");
+    return cached ? JSON.parse(cached) : [];
+  }
+
+  /**
+   * Fetches sorted top team list and completed matches for pre-event scouting
+   */
+  async fetchPreEventTeamList(eventCode) {
+    if (!eventCode) return null;
+    if (!navigator.onLine) {
+      const cached = localStorage.getItem(`preevent_data_${eventCode}`);
+      return cached ? JSON.parse(cached) : null;
+    }
+    try {
+      const endpoint = this.getSyncEndpoint();
+      if (!endpoint) return null;
+      const response = await fetch(`${endpoint}?action=getPreEventData&event=${encodeURIComponent(eventCode)}`);
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem(`preevent_data_${eventCode}`, JSON.stringify(data));
+        console.log(`[Sync] Pre-event data for ${eventCode} successfully cached!`);
+        return data;
+      }
+    } catch (err) {
+      console.warn(`[Sync] Failed to fetch pre-event data for ${eventCode}:`, err);
+    }
+    const cached = localStorage.getItem(`preevent_data_${eventCode}`);
+    return cached ? JSON.parse(cached) : null;
   }
 }
 

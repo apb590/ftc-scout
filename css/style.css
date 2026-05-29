@@ -1087,3 +1087,63 @@ button, .event-log-btn, .counter-btn, .toggle-checkbox-btn, .range-toggle-btn, .
   }
 }
 
+/* Pre-event Scouting Dashboard Premium UI Styles */
+#preevent-container {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.preevent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+  transition: var(--transition-smooth);
+}
+
+.preevent-badge-ftc {
+  background: rgba(79, 70, 229, 0.1);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+  color: #818cf8;
+}
+
+.preevent-badge-ftc:hover {
+  background: rgba(79, 70, 229, 0.2);
+  border-color: #818cf8;
+  box-shadow: 0 0 10px rgba(129, 140, 248, 0.2);
+}
+
+.preevent-badge-video {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.preevent-badge-video:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #f87171;
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.2);
+}
+
+#preevent-qr-canvas {
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#preevent-qr-canvas:hover {
+  transform: scale(1.05);
+}
+
+@keyframes pulseBorder {
+  0% { border-color: var(--accent-color); box-shadow: 0 0 5px rgba(99, 102, 241, 0.2); }
+  50% { border-color: #a855f7; box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
+  100% { border-color: var(--accent-color); box-shadow: 0 0 5px rgba(99, 102, 241, 0.2); }
+}
+
+#preevent-qr-container {
+  animation: pulseBorder 4s infinite ease-in-out;
+}
+

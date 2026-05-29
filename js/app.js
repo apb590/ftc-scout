@@ -12,6 +12,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (window.syncManager && navigator.onLine) {
       window.syncManager.fetchAndCacheQualSchedule();
     }
+    
+    // Initialize active events dropdown and pre-event setup
+    await initEventDropdown();
   } catch (err) {
     console.error("[App] Failed to load database layer:", err);
   }
@@ -39,10 +42,344 @@ document.addEventListener("DOMContentLoaded", async () => {
   const toastBanner = document.getElementById("toast-notification");
   const toastMsg = document.getElementById("toast-message");
 
+  // Pre-event Elements References
+  const eventSelect = document.getElementById("event-select");
+  const preeventContainer = document.getElementById("preevent-container");
+  const preeventTeamSelect = document.getElementById("preevent-team-select");
+  const preeventMatchInput = document.getElementById("preevent-matchno");
+  const preeventAllianceContainer = document.getElementById("preevent-alliance-container");
+  const preeventAllianceRed = document.getElementById("preevent-alliance-red");
+  const preeventAllianceBlue = document.getElementById("preevent-alliance-blue");
+  const preeventLinksContainer = document.getElementById("preevent-links-container");
+  const preeventScoutedStatus = document.getElementById("preevent-scouted-status");
+  const preeventQRCanvas = document.getElementById("preevent-qr-canvas");
+  const standardSetupInputs = document.getElementById("standard-setup-inputs");
+
   let canvasInstance = null;
   // Coordinates coordinates
   let activePinX = null;
   let activePinY = null;
+
+  let activeLiveEventCode = "";
+  let preEventData = null;
+
+  // Parse URL pre-population parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("mode") === "preevent") {
+    window.preeventUrlParams = {
+      event: urlParams.get("event") || "",
+      team: urlParams.get("team") || "",
+      scouted_event: urlParams.get("scouted_event") || "",
+      match: urlParams.get("match") || "",
+      alliance: urlParams.get("alliance") || ""
+    };
+  }
+
+  // Active Event Dropdown Populator
+  async function initEventDropdown() {
+    if (!eventSelect) return;
+    
+    if (window.syncManager) {
+      const endpoint = window.syncManager.getSyncEndpoint();
+      if (navigator.onLine && endpoint) {
+        try {
+          const configRes = await fetch(`${endpoint}?action=getAdminConfig`);
+          if (configRes.ok) {
+            const config = await configRes.json();
+            activeLiveEventCode = config.targetEvent || "";
+            localStorage.setItem("active_live_event_code", activeLiveEventCode);
+          }
+        } catch (e) {
+          console.warn("[App] Failed to fetch active live event:", e);
+        }
+      }
+      if (!activeLiveEventCode) {
+        activeLiveEventCode = localStorage.getItem("active_live_event_code") || "";
+      }
+      
+      const events = await window.syncManager.fetchEventConfig();
+      
+      eventSelect.innerHTML = "";
+      if (events && events.length > 0) {
+        const placeholderOpt = document.createElement("option");
+        placeholderOpt.value = "";
+        placeholderOpt.textContent = "-- Select Event --";
+        eventSelect.appendChild(placeholderOpt);
+        
+        events.forEach(e => {
+          const opt = document.createElement("option");
+          opt.value = e.code;
+          opt.textContent = `${e.name} (${e.code.toUpperCase()})`;
+          eventSelect.appendChild(opt);
+        });
+      } else {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "-- No Events Available --";
+        eventSelect.appendChild(opt);
+      }
+    }
+    
+    let restoredEvent = "";
+    if (window.preeventUrlParams && window.preeventUrlParams.event) {
+      restoredEvent = window.preeventUrlParams.event;
+    } else {
+      restoredEvent = localStorage.getItem("sticky_event") || "";
+    }
+    
+    if (restoredEvent) {
+      eventSelect.value = restoredEvent;
+    }
+    
+    eventSelect.addEventListener("change", () => {
+      localStorage.setItem("sticky_event", eventSelect.value);
+      handleEventSelectionChange();
+    });
+    
+    await handleEventSelectionChange();
+  }
+
+  // Pre-event Container Toggle Control
+  async function handleEventSelectionChange() {
+    const selectedEvent = eventSelect.value;
+    const standardMatchInput = document.getElementById("matchno");
+    const standardTeamInput = document.getElementById("teamno");
+    const standardAllianceGroup = document.getElementById("alliance-container") ? document.getElementById("alliance-container").closest(".input-group") : null;
+    
+    if (!selectedEvent) {
+      if (preeventContainer) preeventContainer.style.display = "none";
+      if (standardSetupInputs) standardSetupInputs.style.display = "flex";
+      if (standardAllianceGroup) standardAllianceGroup.style.display = "block";
+      if (standardMatchInput) standardMatchInput.required = true;
+      if (standardTeamInput) standardTeamInput.required = true;
+      return;
+    }
+    
+    if (selectedEvent === activeLiveEventCode) {
+      if (preeventContainer) preeventContainer.style.display = "none";
+      if (standardSetupInputs) standardSetupInputs.style.display = "flex";
+      if (standardAllianceGroup) standardAllianceGroup.style.display = "block";
+      if (standardMatchInput) standardMatchInput.required = true;
+      if (standardTeamInput) standardTeamInput.required = true;
+      
+      updateTeamSelector();
+    } else {
+      if (standardSetupInputs) standardSetupInputs.style.display = "none";
+      if (standardAllianceGroup) standardAllianceGroup.style.display = "none";
+      if (standardMatchInput) {
+        standardMatchInput.required = false;
+        standardMatchInput.value = "";
+      }
+      if (standardTeamInput) {
+        standardTeamInput.required = false;
+        standardTeamInput.value = "";
+      }
+      if (preeventContainer) preeventContainer.style.display = "block";
+      
+      if (preeventTeamSelect) {
+        preeventTeamSelect.innerHTML = "<option value=''>-- Loading Teams --</option>";
+      }
+      
+      preEventData = await window.syncManager.fetchPreEventTeamList(selectedEvent);
+      
+      if (preEventData) {
+        populatePreEventTeamSelector(preEventData);
+      } else {
+        if (preeventTeamSelect) {
+          preeventTeamSelect.innerHTML = "<option value=''>-- Error Loading Teams --</option>";
+        }
+      }
+    }
+  }
+
+  // Pre-event Team Dropdown Prioritization Sorting
+  function populatePreEventTeamSelector(data) {
+    if (!preeventTeamSelect) return;
+    
+    const topTeams = data.topTeams || [];
+    const completedMatches = data.completedMatches || [];
+    
+    const completionsMap = {};
+    completedMatches.forEach(m => {
+      completionsMap[m.team] = (completionsMap[m.team] || 0) + 1;
+    });
+    
+    const sortedTeams = [...topTeams].sort((a, b) => {
+      const compA = completionsMap[a.num] || 0;
+      const compB = completionsMap[b.num] || 0;
+      const isScoutedA = compA > 0;
+      const isScoutedB = compB > 0;
+      
+      if (isScoutedA && !isScoutedB) return 1;
+      if (!isScoutedA && isScoutedB) return -1;
+      return b.npOPR - a.npOPR;
+    });
+    
+    preeventTeamSelect.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "-- Choose Team --";
+    preeventTeamSelect.appendChild(placeholder);
+    
+    sortedTeams.forEach(t => {
+      const comp = completionsMap[t.num] || 0;
+      const opt = document.createElement("option");
+      opt.value = t.num;
+      opt.setAttribute("data-lastevent", t.lastEvent || "");
+      opt.setAttribute("data-npopr", t.npOPR || 0);
+      opt.setAttribute("data-autoopr", t.autoOPR || 0);
+      opt.setAttribute("data-teleopr", t.teleOPR || 0);
+      opt.setAttribute("data-awards", t.awardsStr || "");
+      
+      if (comp > 0) {
+        opt.textContent = `Team ${t.num} - ${t.name} (Scouted: ${comp} match${comp > 1 ? "es" : ""}, OPR: ${t.npOPR})`;
+        opt.style.color = "var(--text-secondary)";
+      } else {
+        opt.textContent = `Team ${t.num} - ${t.name} (OPR: ${t.npOPR})`;
+        opt.style.color = "var(--accent-color)";
+      }
+      preeventTeamSelect.appendChild(opt);
+    });
+    
+    if (window.preeventUrlParams) {
+      const params = window.preeventUrlParams;
+      if (params.team) {
+        preeventTeamSelect.value = params.team;
+      }
+      if (preeventMatchInput && params.match) {
+        preeventMatchInput.value = params.match;
+      }
+      if (params.alliance) {
+        const btn = document.querySelector(`.segment-btn[id^='preevent-alliance-'][data-value='${params.alliance}']`);
+        if (btn) btn.click();
+      }
+      
+      handlePreEventSelectionUpdates();
+      
+      window.preeventUrlParams = null;
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) {}
+    }
+  }
+
+  // Pre-event Live QR Code and Links Generator Control
+  function handlePreEventSelectionUpdates() {
+    const selectedTeam = preeventTeamSelect ? preeventTeamSelect.value : "";
+    const matchVal = preeventMatchInput ? preeventMatchInput.value : "";
+    
+    let allianceVal = "";
+    const activeAllianceBtn = preeventAllianceContainer ? preeventAllianceContainer.querySelector(".segment-btn.active") : null;
+    if (activeAllianceBtn) {
+      allianceVal = activeAllianceBtn.getAttribute("data-value");
+    }
+    
+    const standardTeamInput = document.getElementById("teamno");
+    if (standardTeamInput) {
+      standardTeamInput.value = selectedTeam;
+    }
+    const standardMatchInput = document.getElementById("matchno");
+    if (standardMatchInput) {
+      standardMatchInput.value = matchVal;
+    }
+    if (allianceVal) {
+      allianceInput.value = allianceVal;
+    }
+    
+    if (!selectedTeam) {
+      if (preeventLinksContainer) preeventLinksContainer.innerHTML = "";
+      if (preeventScoutedStatus) {
+        preeventScoutedStatus.style.display = "none";
+        preeventScoutedStatus.innerHTML = "";
+      }
+      const canvas = document.getElementById("preevent-qr-canvas");
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      return;
+    }
+    
+    const activeOption = preeventTeamSelect.selectedOptions[0];
+    const lastEvent = activeOption ? activeOption.getAttribute("data-lastevent") : "";
+    
+    if (preeventLinksContainer) {
+      preeventLinksContainer.innerHTML = `
+        <a href="https://ftc-events.firstinspires.org/2025/team/${selectedTeam}" target="_blank" class="preevent-badge-ftc" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(99,102,241,0.15); color:var(--accent-color); font-weight:600; font-size:0.85rem; border:1px solid rgba(99,102,241,0.3); transition:all 0.2s;">
+          🌐 FTC Profile (${selectedTeam})
+        </a>
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent('ftc team ' + selectedTeam + ' ' + lastEvent + (matchVal ? ' Q' + matchVal : ''))}" target="_blank" class="preevent-badge-video" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
+          📺 Watch ${lastEvent ? lastEvent.toUpperCase() : "Last Played"} Video
+        </a>
+      `;
+    }
+    
+    if (preeventScoutedStatus && preEventData) {
+      const completed = preEventData.completedMatches || [];
+      const teamMatches = completed.filter(m => String(m.team) === String(selectedTeam));
+      
+      if (teamMatches.length > 0) {
+        const matchesList = teamMatches.map(m => `Q${m.match}`).join(", ");
+        preeventScoutedStatus.innerHTML = `⚠️ Already scouted at this event: <strong>Match ${matchesList}</strong>`;
+        preeventScoutedStatus.style.display = "block";
+      } else {
+        preeventScoutedStatus.innerHTML = `✅ No matches scouted yet for Team ${selectedTeam} at this event.`;
+        preeventScoutedStatus.style.display = "block";
+      }
+    }
+    
+    if (preeventQRCanvas && window.QRious) {
+      let eventUrl = "";
+      if (window.syncManager) {
+        const events = JSON.parse(localStorage.getItem("event_config") || "[]");
+        const ev = events.find(e => e.code === eventSelect.value);
+        if (ev && ev.url) {
+          eventUrl = ev.url;
+        }
+      }
+      if (!eventUrl) {
+        eventUrl = window.location.origin + window.location.pathname;
+      }
+      
+      const preeventUrl = new URL(eventUrl);
+      preeventUrl.searchParams.set("mode", "preevent");
+      preeventUrl.searchParams.set("team", selectedTeam);
+      preeventUrl.searchParams.set("event", eventSelect.value);
+      preeventUrl.searchParams.set("scouted_event", lastEvent);
+      if (matchVal) preeventUrl.searchParams.set("match", matchVal);
+      if (allianceVal) preeventUrl.searchParams.set("alliance", allianceVal);
+      
+      new window.QRious({
+        element: preeventQRCanvas,
+        value: preeventUrl.toString(),
+        size: 160,
+        level: "M"
+      });
+    }
+  }
+
+  // Bind change listeners to preevent elements
+  if (preeventTeamSelect) {
+    preeventTeamSelect.addEventListener("change", handlePreEventSelectionUpdates);
+  }
+  if (preeventMatchInput) {
+    preeventMatchInput.addEventListener("input", handlePreEventSelectionUpdates);
+    preeventMatchInput.addEventListener("change", handlePreEventSelectionUpdates);
+  }
+  if (preeventAllianceRed && preeventAllianceBlue) {
+    preeventAllianceRed.addEventListener("click", () => {
+      preeventAllianceRed.classList.add("active");
+      preeventAllianceBlue.classList.remove("active");
+      setAllianceStyle("Red");
+      handlePreEventSelectionUpdates();
+    });
+    preeventAllianceBlue.addEventListener("click", () => {
+      preeventAllianceBlue.classList.add("active");
+      preeventAllianceRed.classList.remove("active");
+      setAllianceStyle("Blue");
+      handlePreEventSelectionUpdates();
+    });
+  }
 
   // Initialize sync status on load
   if (window.syncManager) {
@@ -421,6 +758,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     data.pinX = activePinX;
     data.pinY = activePinY;
 
+    // Append pre-event schema fields
+    const selectedEvent = document.getElementById("event-select") ? document.getElementById("event-select").value : "";
+    const isPre = (selectedEvent && selectedEvent !== activeLiveEventCode) ? 1 : 0;
+    
+    data.is_preevent = isPre;
+    data.upcoming_event = isPre ? selectedEvent : "";
+    
+    let scoutedEventVal = "";
+    if (isPre) {
+      const teamSel = document.getElementById("preevent-team-select");
+      if (teamSel && teamSel.selectedOptions && teamSel.selectedOptions[0]) {
+        scoutedEventVal = teamSel.selectedOptions[0].getAttribute("data-lastevent") || "";
+      }
+    }
+    data.scouted_event = scoutedEventVal;
+
     return data;
   }
 
@@ -506,6 +859,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         activePinX = draft.pinX;
         activePinY = draft.pinY;
         canvasInstance.setPinPosition(activePinX, activePinY);
+      }
+
+      // Restore Event dropdown sticky state or draft state
+      const evSelect = document.getElementById("event-select");
+      if (evSelect && draft.upcoming_event) {
+        evSelect.value = draft.upcoming_event;
+        await handleEventSelectionChange();
+        
+        // Restore pre-event inputs if in pre-event mode
+        if (draft.is_preevent) {
+          const preTeamSel = document.getElementById("preevent-team-select");
+          if (preTeamSel && draft.teamno) {
+            preTeamSel.value = draft.teamno;
+          }
+          const preMatchInput = document.getElementById("preevent-matchno");
+          if (preMatchInput && draft.matchno) {
+            preMatchInput.value = draft.matchno;
+          }
+          if (draft.alliance) {
+            const btn = document.querySelector(`.segment-btn[id^='preevent-alliance-'][data-value='${draft.alliance}']`);
+            if (btn) btn.click();
+          }
+          handlePreEventSelectionUpdates();
+        }
       }
 
       showToast("Unfinished Scouting Draft Restored!");
@@ -921,6 +1298,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await window.dbManager.clearDraft();
 
       // 3. Reset form states (Counters back to 0, clear canvas pin)
+      const savedEvent = document.getElementById("event-select") ? document.getElementById("event-select").value : "";
       form.reset();
       resetFormCounters();
       updateTeamSelector();
@@ -932,6 +1310,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Repopulate Scouter Name for next scout matches (UX helper)
       document.getElementById("username").value = finalRecord.username;
+
+      // Restore active event
+      if (savedEvent) {
+        const evSelect = document.getElementById("event-select");
+        if (evSelect) {
+          evSelect.value = savedEvent;
+          handleEventSelectionChange();
+        }
+      }
 
       // 4. Trigger auto sync queue in background
       if (window.syncManager) {
@@ -957,8 +1344,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     clearFormBtn.addEventListener("click", async () => {
       const confirmClear = confirm("⚠️ Reset Scouting Form?\n\nAre you sure you want to clear the entire form? This will permanently wipe all of your current unsaved match inputs.");
       if (confirmClear) {
-        // Save the scouter name so it doesn't get lost
+        // Save the scouter name and active event select so they don't get lost
         const savedName = document.getElementById("username").value;
+        const savedEvent = document.getElementById("event-select") ? document.getElementById("event-select").value : "";
         
         // Reset form controls
         form.reset();
@@ -970,8 +1358,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           canvasInstance.clearPin();
         }
         
-        // Restore scouter name
+        // Restore scouter name and active event
         document.getElementById("username").value = savedName;
+        if (savedEvent) {
+          const evSelect = document.getElementById("event-select");
+          if (evSelect) {
+            evSelect.value = savedEvent;
+            handleEventSelectionChange();
+          }
+        }
         
         // Clear IndexedDB active draft buffer to prevent auto-restoring
         await window.dbManager.clearDraft();
