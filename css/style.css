@@ -61,6 +61,12 @@
 }
 
 /* Standard Base Styles */
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%; /* Prevent iOS/Android auto font scaling */
+  text-size-adjust: 100%;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

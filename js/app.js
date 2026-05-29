@@ -157,10 +157,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       populateDropdownWithOptions(cachedEvents);
     }
     
-    // 2. Fetch targetEvent and latest events list from network in background (non-blocking)
+    // 2. Fetch targetEvent and latest events from network — AWAIT the event config
+    //    so dropdown is populated BEFORE handleEventSelectionChange runs.
     if (window.syncManager) {
       const endpoint = window.syncManager.getSyncEndpoint();
       if (endpoint) {
+        // Admin config (target event) — fire-and-forget, non-critical for dropdown
         fetch(`${endpoint}?action=getAdminConfig`)
           .then(res => res.ok ? res.json() : null)
           .then(config => {
@@ -172,16 +174,19 @@ document.addEventListener("DOMContentLoaded", async () => {
           })
           .catch(e => console.warn("[App] Failed to fetch active live event in background:", e));
         
-        window.syncManager.fetchEventConfig()
-          .then(events => {
-            if (events && events.length > 0) {
-              populateDropdownWithOptions(events);
-            }
-          })
-          .catch(e => console.warn("[App] Failed to fetch event config in background:", e));
+        // Event config — AWAIT this so dropdown is ready before we proceed
+        try {
+          const events = await window.syncManager.fetchEventConfig();
+          if (events && events.length > 0) {
+            populateDropdownWithOptions(events);
+          }
+        } catch (e) {
+          console.warn("[App] Failed to fetch event config:", e);
+        }
       }
     }
     
+    // 3. Restore sticky event AFTER dropdown is populated
     let restoredEvent = "";
     if (window.preeventUrlParams && window.preeventUrlParams.event) {
       restoredEvent = window.preeventUrlParams.event;
@@ -447,44 +452,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const activeOption = preeventTeamSelect.selectedOptions[0];
     const lastEventRaw = activeOption ? activeOption.getAttribute("data-lastevent") : "";
     let lastEventCode = "";
-    let lastEventName = "";
     
     if (lastEventRaw.includes("|")) {
-      const parts = lastEventRaw.split("|");
-      lastEventCode = parts[0].trim();
-      lastEventName = parts[1].trim();
+      lastEventCode = lastEventRaw.split("|")[0].trim();
     } else {
-      lastEventCode = lastEventRaw;
-      lastEventName = lastEventRaw;
+      lastEventCode = lastEventRaw.trim();
     }
-
-    // Resolve event code to custom name using cached event_config if available
-    if (lastEventCode) {
-      try {
-        const cachedConfig = localStorage.getItem("event_config");
-        if (cachedConfig) {
-          const events = JSON.parse(cachedConfig);
-          const found = events.find(e => e.code && e.code.toLowerCase() === lastEventCode.toLowerCase());
-          if (found && found.name) {
-            lastEventName = found.name;
-          }
-        }
-      } catch (e) {
-        console.warn("Failed to lookup event code in local event_config:", e);
-      }
-    }
-
-    // Identify raw event codes (alphanumeric, no spaces, starts with FTC or long alphanumeric)
-    const isEventCode = (str) => {
-      if (!str) return false;
-      const clean = str.trim();
-      return /^[A-Z0-9]+$/i.test(clean) && (clean.toUpperCase().startsWith("FTC") || clean.length >= 6);
-    };
-
-    // Construct highly relevant YouTube query avoiding raw event codes
-    const youtubeSearchQuery = 'ftc team ' + selectedTeam + 
-      (lastEventName && !isEventCode(lastEventName) ? ' ' + lastEventName : '') + 
-      (matchVal ? ' Q' + matchVal : '');
     
     if (preeventLinksContainer) {
       const targetUrl = lastEventCode
@@ -498,9 +471,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       preeventLinksContainer.innerHTML = `
         <a href="${targetUrl}" target="_blank" class="preevent-badge-video" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(99,102,241,0.15); color:var(--accent-color); font-weight:600; font-size:0.85rem; border:1px solid rgba(99,102,241,0.3); transition:all 0.2s;">
           ${badgeLabel}
-        </a>
-        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(youtubeSearchQuery)}" target="_blank" class="preevent-badge-youtube" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
-          🔍 YouTube Search
         </a>
       `;
     }
