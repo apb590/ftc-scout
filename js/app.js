@@ -327,8 +327,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             "auto_park": "On Launch Line",
             "auto_gate": "Avoided gate",
             "telesetup": "Unsure / not a distinct first step",
-            "tele_pattern": "unsure",
-            "tele_range": "Can't Tell",
+            "tele_pattern": "no",
+            "tele_range": "Unable to tell",
             "defense": "No intentional contact",
             "timetopark": "",
             "park_base": "Did not attempt",
@@ -514,15 +514,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  const matchnoInput = document.getElementById("matchno");
-  const teamnoContainer = document.getElementById("teamno-container");
-  
   if (matchnoInput && teamnoContainer) {
     matchnoInput.addEventListener("input", updateTeamSelector);
     matchnoInput.addEventListener("change", updateTeamSelector);
   }
 
-  const testMatchNumbers = [123, 999, 9999, 1234, 1000];
 
   function updateTeamSelector() {
     if (!matchnoInput || !teamnoContainer) return;
@@ -1008,16 +1004,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     // Set explicit default values for all range-toggle and mutually exclusive fields
     const rangeDefaults = {
-      "auto_range": "No shots taken / unknown",
+      "auto_range": "",
       "auto_park": "On Launch Line",
       "auto_gate": "Avoided gate",
       "telesetup": "Unsure / not a distinct first step",
-      "tele_pattern": "unsure",
-      "tele_range": "Can't Tell",
+      "tele_pattern": "no",
+      "tele_range": "Unable to tell",
       "defense": "No intentional contact",
       "timetopark": "",
-      "park_base": "Did not attempt",
-      "park_bonus": "No bonus"
+      "park_base": "",
+      "park_bonus": ""
     };
 
     for (const [field, defVal] of Object.entries(rangeDefaults)) {
@@ -1026,6 +1022,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       // Auto-activate the default button in PWA UI visually (only if default is not empty)
       if (defVal !== "") {
+        // Exclude park_bonus from visual pre-selection so it starts unselected
+        if (field === "park_bonus") continue;
+        
         const defaultBtn = document.querySelector(`.range-toggle-btn[data-field='${field}'][data-value='${defVal}']`);
         if (defaultBtn) {
           defaultBtn.classList.add("active");
@@ -1037,16 +1036,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.querySelectorAll(".toggle-checkbox-btn").forEach(btn => btn.classList.remove("active"));
     
     // Reset all checkboxes hidden values
-    const checkboxFields = ["auto_pattern", "auto_midline", "auto_penal", "tele_collection", "tele_penal"];
+    const checkboxFields = ["auto_pattern", "auto_midline", "auto_penal", "tele_penal"];
     checkboxFields.forEach(field => {
       const input = document.getElementById(field);
       if (input) input.value = "";
     });
 
-    // Reset segmented selector states back to default (No / No failures)
-    document.querySelectorAll(".segment-btn[data-value='No']").forEach(btn => {
-      btn.click();
-    });
+    // Default ground for tele_collection
+    const teleCollInput = document.getElementById("tele_collection");
+    if (teleCollInput) {
+      teleCollInput.value = "ground";
+      const groundBtn = document.querySelector(".toggle-checkbox-btn[data-value='ground']");
+      if (groundBtn) groundBtn.classList.add("active");
+    }
+
+    // Reset segmented selector states: clear all, then default automove to No
+    document.querySelectorAll(".segment-btn").forEach(btn => btn.classList.remove("active"));
+    
+    // Explicitly set automove default to "No"
+    const automoveInput = document.getElementById("automove");
+    if (automoveInput) automoveInput.value = "No";
+    const automoveNoBtn = document.querySelector(".segment-btn[data-field='automove'][data-value='No']");
+    if (automoveNoBtn) automoveNoBtn.classList.add("active");
+
+    // Explicitly reset alliance
+    const allianceInput = document.getElementById("alliance");
+    if (allianceInput) allianceInput.value = "";
+    
+    // Explicitly set breaks default to "No"
+    const breaksInput = document.getElementById("breaks");
+    if (breaksInput) breaksInput.value = "No";
+    const breaksNoBtn = document.querySelector(".segment-btn[data-field='breaks'][data-value='No']");
+    if (breaksNoBtn) breaksNoBtn.classList.add("active");
 
     // Navigate back to Setup phase
     navigateToPhase("step-setup");
