@@ -24,10 +24,16 @@ class ScoutingSyncManager {
   }
 
   /**
-   * Returns the active sync API URL (defaults to mock endpoint)
+   * Returns the active sync API URL (defaults to live spreadsheet endpoint)
+   * Dynamically auto-migrates any instances pointing to the obsolete mock endpoint.
    */
   getSyncEndpoint() {
-    return localStorage.getItem(this.syncEndpointKey) || "https://script.google.com/macros/s/AKfycbwr8qHhcLIQVY9tUasa_GMvkTpLOk2vdfSQDbjIOLxqGVOavdUA-ef68KhH9n0XPIBerw/exec";
+    let url = localStorage.getItem(this.syncEndpointKey);
+    if (url && url.includes("AKfycbwr8qHhcLIQVY9tUasa_GMvkTpLOk2vdfSQDbjIOLxqGVOavdUA-ef68KhH9n0XPIBerw")) {
+      url = "https://script.google.com/macros/s/AKfycbxJRUak86fAobUoidVDzuiJNHdq23nU8KbodwiwK0KvovdprEE8nm4WVvvn9qLQhgQt/exec";
+      localStorage.setItem(this.syncEndpointKey, url);
+    }
+    return url || "https://script.google.com/macros/s/AKfycbxJRUak86fAobUoidVDzuiJNHdq23nU8KbodwiwK0KvovdprEE8nm4WVvvn9qLQhgQt/exec";
   }
 
   /**
