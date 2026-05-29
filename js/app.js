@@ -15,6 +15,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     // Initialize active events dropdown and pre-event setup
     await initEventDropdown();
+    
+    // Restore and save Scouter Name to localStorage to survive page refreshes
+    const usernameInput = document.getElementById("username");
+    if (usernameInput) {
+      usernameInput.value = localStorage.getItem("sticky_scouter_name") || "";
+      const saveName = () => localStorage.setItem("sticky_scouter_name", usernameInput.value.trim());
+      usernameInput.addEventListener("input", saveName);
+      usernameInput.addEventListener("change", saveName);
+    }
   } catch (err) {
     console.error("[App] Failed to load database layer:", err);
   }
