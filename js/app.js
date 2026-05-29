@@ -102,7 +102,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const preeventAllianceBlue = document.getElementById("preevent-alliance-blue");
   const preeventLinksContainer = document.getElementById("preevent-links-container");
   const preeventScoutedStatus = document.getElementById("preevent-scouted-status");
-  const preeventQRCanvas = document.getElementById("preevent-qr-canvas");
   const standardSetupInputs = document.getElementById("standard-setup-inputs");
   const scoutingModeGroup = document.getElementById("scouting-mode-group");
   const modeBtnLive = document.getElementById("mode-btn-live");
@@ -429,11 +428,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         preeventScoutedStatus.style.display = "none";
         preeventScoutedStatus.innerHTML = "";
       }
-      const canvas = document.getElementById("preevent-qr-canvas");
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
       return;
     }
     
@@ -481,46 +475,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         preeventScoutedStatus.innerHTML = `✅ No matches scouted yet for Team ${selectedTeam} at this event.`;
         preeventScoutedStatus.style.display = "block";
-      }
-    }
-    
-    if (preeventQRCanvas && window.QRious) {
-      let eventUrl = "";
-      if (window.syncManager) {
-        let events = [];
-        try {
-          events = JSON.parse(localStorage.getItem("event_config") || "[]");
-        } catch (e) {
-          console.warn("[App] Failed to parse event_config for QR code URL:", e);
-        }
-        if (Array.isArray(events)) {
-          const ev = events.find(e => e.code === eventSelect.value);
-          if (ev && ev.url && !ev.url.includes("script.google.com")) {
-            eventUrl = ev.url;
-          }
-        }
-      }
-      if (!eventUrl) {
-        eventUrl = window.location.origin + window.location.pathname;
-      }
-      
-      try {
-        const preeventUrl = new URL(eventUrl);
-        preeventUrl.searchParams.set("mode", "preevent");
-        preeventUrl.searchParams.set("team", selectedTeam);
-        preeventUrl.searchParams.set("event", eventSelect.value);
-        preeventUrl.searchParams.set("scouted_event", lastEvent);
-        if (matchVal) preeventUrl.searchParams.set("match", matchVal);
-        if (allianceVal) preeventUrl.searchParams.set("alliance", allianceVal);
-        
-        new window.QRious({
-          element: preeventQRCanvas,
-          value: preeventUrl.toString(),
-          size: 160,
-          level: "M"
-        });
-      } catch (err) {
-        console.error("[App] Failed to generate pre-event QR code:", err);
       }
     }
   }
