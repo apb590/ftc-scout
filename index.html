@@ -99,9 +99,25 @@
               </div>
               <div class="input-group" style="margin-bottom: 0;">
                 <label class="input-label" for="event-select">Active Event *</label>
-                <select id="event-select" class="input-control" required>
-                  <option value="">-- Loading Events --</option>
-                </select>
+                <div style="display: flex; gap: 8px; align-items: stretch;">
+                  <select id="event-select" class="input-control" required style="flex: 1; min-width: 0;">
+                    <option value="">-- Loading Events --</option>
+                  </select>
+                  <button type="button" id="refresh-events-btn" title="Refresh Events" style="
+                    background: rgba(99, 102, 241, 0.15);
+                    border: 1px solid rgba(99, 102, 241, 0.3);
+                    border-radius: var(--radius-sm);
+                    color: var(--accent-color);
+                    padding: 0 12px;
+                    cursor: pointer;
+                    font-size: 1.2rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
+                    flex-shrink: 0;
+                  ">↻</button>
+                </div>
               </div>
             </div>
 
