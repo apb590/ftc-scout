@@ -278,7 +278,6 @@ class ScoutingSyncManager {
    * Fetches and caches the qualification schedule locally in localStorage
    */
   async fetchAndCacheQualSchedule(eventCode = null) {
-    if (!navigator.onLine) return;
     try {
       const endpoint = this.getSyncEndpoint();
       if (!endpoint) return;
@@ -317,28 +316,21 @@ class ScoutingSyncManager {
    * Fetches the list of active events from the Google Sheet backend
    */
   async fetchEventConfig() {
-    if (!navigator.onLine) {
-      const cached = localStorage.getItem("event_config");
-      try {
-        return cached ? JSON.parse(cached) : [];
-      } catch (e) {
-        console.warn("[Sync] Failed to parse cached event_config:", e);
-        return [];
-      }
-    }
     try {
       const endpoint = this.getSyncEndpoint();
-      if (!endpoint) return [];
-      const response = await fetch(`${endpoint}?action=getEventConfig`);
-      if (response.ok) {
-        const events = await response.json();
-        localStorage.setItem("event_config", JSON.stringify(events));
-        console.log("[Sync] Event config successfully fetched and cached locally!");
-        return events;
+      if (endpoint) {
+        const response = await fetch(`${endpoint}?action=getEventConfig`);
+        if (response.ok) {
+          const events = await response.json();
+          localStorage.setItem("event_config", JSON.stringify(events));
+          console.log("[Sync] Event config successfully fetched and cached locally!");
+          return events;
+        }
       }
     } catch (err) {
-      console.warn("[Sync] Failed to fetch event config:", err);
+      console.warn("[Sync] Failed to fetch event config, falling back to cache:", err);
     }
+    
     const cached = localStorage.getItem("event_config");
     try {
       return cached ? JSON.parse(cached) : [];
@@ -353,28 +345,21 @@ class ScoutingSyncManager {
    */
   async fetchPreEventTeamList(eventCode) {
     if (!eventCode) return null;
-    if (!navigator.onLine) {
-      const cached = localStorage.getItem(`preevent_data_${eventCode}`);
-      try {
-        return cached ? JSON.parse(cached) : null;
-      } catch (e) {
-        console.warn(`[Sync] Failed to parse cached preevent_data for ${eventCode}:`, e);
-        return null;
-      }
-    }
     try {
       const endpoint = this.getSyncEndpoint();
-      if (!endpoint) return null;
-      const response = await fetch(`${endpoint}?action=getPreEventData&event=${encodeURIComponent(eventCode)}`);
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem(`preevent_data_${eventCode}`, JSON.stringify(data));
-        console.log(`[Sync] Pre-event data for ${eventCode} successfully cached!`);
-        return data;
+      if (endpoint) {
+        const response = await fetch(`${endpoint}?action=getPreEventData&event=${encodeURIComponent(eventCode)}`);
+        if (response.ok) {
+          const data = await response.json();
+          localStorage.setItem(`preevent_data_${eventCode}`, JSON.stringify(data));
+          console.log(`[Sync] Pre-event data for ${eventCode} successfully cached!`);
+          return data;
+        }
       }
     } catch (err) {
-      console.warn(`[Sync] Failed to fetch pre-event data for ${eventCode}:`, err);
+      console.warn(`[Sync] Failed to fetch pre-event data for ${eventCode}, falling back to cache:`, err);
     }
+    
     const cached = localStorage.getItem(`preevent_data_${eventCode}`);
     try {
       return cached ? JSON.parse(cached) : null;

@@ -8,8 +8,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.warn("[App] Failed to initialize database in background:", err);
   });
 
-  // Fetch and cache the qualification schedule on startup if online
-  if (window.syncManager && navigator.onLine) {
+  // Fetch and cache the qualification schedule on startup
+  if (window.syncManager) {
     try {
       window.syncManager.fetchAndCacheQualSchedule();
     } catch (e) {
@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 2. Fetch targetEvent and latest events list from network in background (non-blocking)
     if (window.syncManager) {
       const endpoint = window.syncManager.getSyncEndpoint();
-      if (endpoint && navigator.onLine) {
+      if (endpoint) {
         fetch(`${endpoint}?action=getAdminConfig`)
           .then(res => res.ok ? res.json() : null)
           .then(config => {
