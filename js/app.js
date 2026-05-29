@@ -438,22 +438,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     const activeOption = preeventTeamSelect.selectedOptions[0];
-    const lastEvent = activeOption ? activeOption.getAttribute("data-lastevent") : "";
+    const lastEventRaw = activeOption ? activeOption.getAttribute("data-lastevent") : "";
+    let lastEventCode = "";
+    let lastEventName = "";
+    
+    if (lastEventRaw.includes("|")) {
+      const parts = lastEventRaw.split("|");
+      lastEventCode = parts[0].trim();
+      lastEventName = parts[1].trim();
+    } else {
+      lastEventCode = lastEventRaw;
+      lastEventName = lastEventRaw;
+    }
     
     if (preeventLinksContainer) {
-      const targetUrl = lastEvent
-        ? `https://ftc-events.firstinspires.org/2025/${lastEvent.toUpperCase()}/qualifications?team=${selectedTeam}`
+      const targetUrl = lastEventCode
+        ? `https://ftc-events.firstinspires.org/2025/${lastEventCode.toUpperCase()}/qualifications?team=${selectedTeam}`
         : `https://ftc-events.firstinspires.org/2025/team/${selectedTeam}`;
       
-      const badgeLabel = lastEvent
-        ? `📺 Watch ${lastEvent.toUpperCase()} Videos`
+      const badgeLabel = lastEventCode
+        ? `📺 Watch ${lastEventCode.toUpperCase()} Videos`
         : `🌐 FIRST Matches (${selectedTeam})`;
 
       preeventLinksContainer.innerHTML = `
         <a href="${targetUrl}" target="_blank" class="preevent-badge-video" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(99,102,241,0.15); color:var(--accent-color); font-weight:600; font-size:0.85rem; border:1px solid rgba(99,102,241,0.3); transition:all 0.2s;">
           ${badgeLabel}
         </a>
-        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent('ftc team ' + selectedTeam + ' ' + lastEvent + (matchVal ? ' Q' + matchVal : ''))}" target="_blank" class="preevent-badge-youtube" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent('ftc team ' + selectedTeam + ' ' + lastEventName + (matchVal ? ' Q' + matchVal : ''))}" target="_blank" class="preevent-badge-youtube" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
           🔍 YouTube Search
         </a>
       `;
