@@ -3,6 +3,19 @@
  * Handles routing, component triggers, form actions, and draft persistence.
  */
 document.addEventListener("DOMContentLoaded", async () => {
+  // Auto-prepopulate and heal the Web App URL if missing or invalid on startup
+  try {
+    const savedUrl = localStorage.getItem("scout_sync_endpoint_url");
+    const obsoleteMock = "AKfycbwr8qHhcLIQVY9tUasa_GMvkTpLOk2vdfSQDbjIOLxqGVOavdUA-ef68KhH9n0XPIBerw";
+    const defaultUrl = "https://script.google.com/macros/s/AKfycbxJRUak86fAobUoidVDzuiJNHdq23nU8KbodwiwK0KvovdprEE8nm4WVvvn9qLQhgQt/exec";
+    if (!savedUrl || savedUrl === "undefined" || savedUrl === "null" || savedUrl.trim() === "" || savedUrl.includes(obsoleteMock)) {
+      localStorage.setItem("scout_sync_endpoint_url", defaultUrl);
+      console.log("[App] Healed and pre-populated default sync endpoint URL.");
+    }
+  } catch (err) {
+    console.error("[App] Failed to auto-populate sync endpoint URL:", err);
+  }
+
   // Initialize Database in background (non-blocking)
   window.dbManager.init().catch(err => {
     console.warn("[App] Failed to initialize database in background:", err);
@@ -444,6 +457,34 @@ document.addEventListener("DOMContentLoaded", async () => {
       lastEventCode = lastEventRaw;
       lastEventName = lastEventRaw;
     }
+
+    // Resolve event code to custom name using cached event_config if available
+    if (lastEventCode) {
+      try {
+        const cachedConfig = localStorage.getItem("event_config");
+        if (cachedConfig) {
+          const events = JSON.parse(cachedConfig);
+          const found = events.find(e => e.code && e.code.toLowerCase() === lastEventCode.toLowerCase());
+          if (found && found.name) {
+            lastEventName = found.name;
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to lookup event code in local event_config:", e);
+      }
+    }
+
+    // Identify raw event codes (alphanumeric, no spaces, starts with FTC or long alphanumeric)
+    const isEventCode = (str) => {
+      if (!str) return false;
+      const clean = str.trim();
+      return /^[A-Z0-9]+$/i.test(clean) && (clean.toUpperCase().startsWith("FTC") || clean.length >= 6);
+    };
+
+    // Construct highly relevant YouTube query avoiding raw event codes
+    const youtubeSearchQuery = 'ftc team ' + selectedTeam + 
+      (lastEventName && !isEventCode(lastEventName) ? ' ' + lastEventName : '') + 
+      (matchVal ? ' Q' + matchVal : '');
     
     if (preeventLinksContainer) {
       const targetUrl = lastEventCode
@@ -458,7 +499,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         <a href="${targetUrl}" target="_blank" class="preevent-badge-video" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(99,102,241,0.15); color:var(--accent-color); font-weight:600; font-size:0.85rem; border:1px solid rgba(99,102,241,0.3); transition:all 0.2s;">
           ${badgeLabel}
         </a>
-        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent('ftc team ' + selectedTeam + ' ' + lastEventName + (matchVal ? ' Q' + matchVal : ''))}" target="_blank" class="preevent-badge-youtube" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(youtubeSearchQuery)}" target="_blank" class="preevent-badge-youtube" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
           🔍 YouTube Search
         </a>
       `;

@@ -29,11 +29,14 @@ class ScoutingSyncManager {
    */
   getSyncEndpoint() {
     let url = localStorage.getItem(this.syncEndpointKey);
-    if (url && url.includes("AKfycbwr8qHhcLIQVY9tUasa_GMvkTpLOk2vdfSQDbjIOLxqGVOavdUA-ef68KhH9n0XPIBerw")) {
-      url = "https://script.google.com/macros/s/AKfycbxJRUak86fAobUoidVDzuiJNHdq23nU8KbodwiwK0KvovdprEE8nm4WVvvn9qLQhgQt/exec";
+    const obsoleteMock = "AKfycbwr8qHhcLIQVY9tUasa_GMvkTpLOk2vdfSQDbjIOLxqGVOavdUA-ef68KhH9n0XPIBerw";
+    const defaultUrl = "https://script.google.com/macros/s/AKfycbxJRUak86fAobUoidVDzuiJNHdq23nU8KbodwiwK0KvovdprEE8nm4WVvvn9qLQhgQt/exec";
+    
+    if (!url || url === "undefined" || url === "null" || url.trim() === "" || url.includes(obsoleteMock)) {
+      url = defaultUrl;
       localStorage.setItem(this.syncEndpointKey, url);
     }
-    return url || "https://script.google.com/macros/s/AKfycbxJRUak86fAobUoidVDzuiJNHdq23nU8KbodwiwK0KvovdprEE8nm4WVvvn9qLQhgQt/exec";
+    return url;
   }
 
   /**
