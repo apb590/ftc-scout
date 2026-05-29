@@ -227,30 +227,25 @@
               <div class="toggle-checkbox-container" data-field="auto_pattern">
                 <button type="button" class="toggle-checkbox-btn" data-value="Preload only">Preload only</button>
                 <button type="button" class="toggle-checkbox-btn" data-value="Spikes direct cycling">Spikes direct cycling</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Midline interception">Midline interception</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="HP assist">HP assist</button>
               </div>
               <input type="hidden" id="auto_pattern" value="">
             </div>
 
             <div class="input-group">
-              <label class="input-label">Auton Substage Gate Interaction (Select all that apply)</label>
-              <div class="toggle-checkbox-container" data-field="auto_gate">
-                <button type="button" class="toggle-checkbox-btn" data-value="Passed under left gate">Passed under left gate</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Passed under right gate">Passed under right gate</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Avoided gate completely">Avoided gate completely</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Blocked at gate">Blocked at gate</button>
+              <label class="input-label">Auton Substage Gate Interaction (Select one)</label>
+              <div class="range-toggle-container">
+                <button type="button" class="range-toggle-btn" data-field="auto_gate" data-value="Avoided gate">Avoided gate</button>
+                <button type="button" class="range-toggle-btn" data-field="auto_gate" data-value="1 gate">1 gate</button>
+                <button type="button" class="range-toggle-btn" data-field="auto_gate" data-value=">1 gate">&gt;1 gate</button>
               </div>
-              <input type="hidden" id="auto_gate" value="">
+              <input type="hidden" id="auto_gate" value="Avoided gate">
             </div>
 
             <div class="input-group">
               <label class="input-label">Midline Interception Notes (Select all that apply)</label>
               <div class="toggle-checkbox-container" data-field="auto_midline">
-                <button type="button" class="toggle-checkbox-btn" data-value="Intercepted 1 piece">Intercepted 1 piece</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Intercepted 2 pieces">Intercepted 2 pieces</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Intercepted 3+ pieces">Intercepted 3+ pieces</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Midline collision">Midline collision</button>
+                <button type="button" class="toggle-checkbox-btn" data-value="Intercepted">Intercepted</button>
+                <button type="button" class="toggle-checkbox-btn" data-value="Collision">Collision</button>
               </div>
               <input type="hidden" id="auto_midline" value="">
             </div>
@@ -258,20 +253,17 @@
             <div class="input-group">
               <label class="input-label">Auton End Parking Status (Select one)</label>
               <div class="range-toggle-container" id="park-toggle-container">
-                <button type="button" class="range-toggle-btn" data-field="auto_park" data-value="Parked inside substage">Parked Substage</button>
-                <button type="button" class="range-toggle-btn" data-field="auto_park" data-value="Parked inside terminal">Parked Terminal</button>
-                <button type="button" class="range-toggle-btn" data-field="auto_park" data-value="Failed base park">Failed / None</button>
+                <button type="button" class="range-toggle-btn" data-field="auto_park" data-value="Off Launch Line">Off Launch Line</button>
+                <button type="button" class="range-toggle-btn" data-field="auto_park" data-value="On Launch Line">On Launch Line</button>
               </div>
-              <input type="hidden" id="auto_park" value="None">
+              <input type="hidden" id="auto_park" value="On Launch Line">
             </div>
 
             <div class="input-group">
-              <label class="input-label">Auton Penalties / Infractions</label>
+              <label class="input-label">Auton Penalties / Infractions (Select all that apply)</label>
               <div class="toggle-checkbox-container" data-field="auto_penal">
-                <button type="button" class="toggle-checkbox-btn" data-value="Major Pinning">Major Pinning</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Minor Contact">Minor Contact</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Substage Encroachment">Substage Encroachment</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Illegal Element Control">Illegal Element Control</button>
+                <button type="button" class="toggle-checkbox-btn" data-value="Opponent interference">Opponent interference</button>
+                <button type="button" class="toggle-checkbox-btn" data-value="Boundary infringement">Boundary infringement</button>
               </div>
               <input type="hidden" id="auto_penal" value="">
             </div>
@@ -359,7 +351,25 @@
                   <input type="hidden" id="far_miss" value="0">
                 </div>
               </div>
+            </div>
 
+            <!-- Gate Openings Card -->
+            <div class="teleop-compact-card" style="padding: 12px; margin-top: 12px;">
+              <div class="input-group" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                <div>
+                  <label class="input-label" style="font-size: 0.9rem; font-weight: 700; margin-bottom: 2px;">Substage Gate Openings</label>
+                  <span style="font-size: 0.75rem; color: var(--text-secondary);">Count number of times gate was lifted</span>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <button type="button" class="event-log-btn btn-classified" id="btn-gate-open" style="padding: 10px 14px; font-size: 0.85rem; font-weight: 600;">+ Gate Opened</button>
+                  <button type="button" class="event-log-btn btn-undo" id="btn-gate-undo" style="padding: 10px 12px; font-size: 0.8rem;">Undo</button>
+                  <div class="totals-display" style="padding: 8px 12px; margin-top: 0; font-size: 0.85rem; font-weight: 700;">
+                    <span>Count: <strong id="val-gate_opn">0</strong></span>
+                  </div>
+                </div>
+                <input type="number" id="gate_opn" value="0" style="display: none;">
+              </div>
             </div>
           </div>
 
@@ -377,92 +387,87 @@
             <h2 class="card-title">Endgame & Review</h2>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-              <div class="input-group" style="margin-bottom: 0;">
-                <label class="input-label" for="telesetup">First Step Setup Strategy</label>
-                <select id="telesetup" class="input-control">
-                  <option value="Not sure / not a distinct first step">Not sure / not a distinct first step</option>
-                  <option value="Aligned flush to Substage Gate">Aligned flush to Substage Gate</option>
-                  <option value="Spike extraction immediately">Spike extraction immediately</option>
-                  <option value="Blocking opponent alliance lanes">Blocking opponent alliance lanes</option>
-                </select>
+              <div class="input-group">
+                <label class="input-label">First Step Setup Strategy (Select one)</label>
+                <div class="range-toggle-container">
+                  <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Unsure / not a distinct first step">Unsure / None</button>
+                  <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Aligned near gate">Aligned near gate</button>
+                  <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Spike">Spike</button>
+                  <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Blocking opponent">Blocking opponent</button>
+                </div>
+                <input type="hidden" id="telesetup" value="Unsure / not a distinct first step">
               </div>
-              <div class="input-group" style="margin-bottom: 0;">
-                <label class="input-label" for="tele_collection">Intake Collection Target Strategy</label>
-                <select id="tele_collection" class="input-control">
-                  <option value="Ground only">Ground only</option>
-                  <option value="Human Player only">Human Player only</option>
-                  <option value="Both Ground and Human Player">Both Ground and Human Player</option>
-                  <option value="None / broken down">None / broken down</option>
-                </select>
+
+              <div class="input-group">
+                <label class="input-label">Intake Collection Strategy (Select all that apply)</label>
+                <div class="toggle-checkbox-container" data-field="tele_collection">
+                  <button type="button" class="toggle-checkbox-btn" data-value="ground">ground</button>
+                  <button type="button" class="toggle-checkbox-btn" data-value="human player">human player</button>
+                  <button type="button" class="toggle-checkbox-btn" data-value="none">none</button>
+                </div>
+                <input type="hidden" id="tele_collection" value="">
               </div>
-            </div>
 
-            <div class="input-group">
-              <label class="input-label" for="tele_pattern">Intake Flow Route Pattern</label>
-              <select id="tele_pattern" class="input-control">
-                <option value="Ground Pickup to Close Goal">Ground Pickup to Close Goal</option>
-                <option value="Ground Pickup to Far Goal">Ground Pickup to Far Goal</option>
-                <option value="Substage HP to Close Goal">Substage HP to Close Goal</option>
-                <option value="Substage HP to Far Goal">Substage HP to Far Goal</option>
-                <option value="Both Ground and HP to Goal">Both Ground and HP to Goal</option>
-                <option value="None / Defensive / Idle">None / Defensive / Idle</option>
-              </select>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-              <div class="input-group" style="margin-bottom: 0;">
-                <label class="input-label" for="gate_opn">Substage Gate Operation Mode</label>
-                <select id="gate_opn" class="input-control">
-                  <option value="Auto / manual lifting">Auto / manual lifting</option>
-                  <option value="Constant open / propped">Constant open / propped</option>
-                  <option value="Never opened / bypassed">Never opened / bypassed</option>
-                </select>
+              <div class="input-group">
+                <label class="input-label">Intake Flow Route Pattern (Select one)</label>
+                <div class="range-toggle-container">
+                  <button type="button" class="range-toggle-btn" data-field="tele_pattern" data-value="yes">yes</button>
+                  <button type="button" class="range-toggle-btn" data-field="tele_pattern" data-value="no">no</button>
+                  <button type="button" class="range-toggle-btn" data-field="tele_pattern" data-value="unsure">unsure</button>
+                </div>
+                <input type="hidden" id="tele_pattern" value="unsure">
               </div>
-              <div class="input-group" style="margin-bottom: 0;">
-                <label class="input-label" for="tele_range">Preferred Cycle Range</label>
-                <select id="tele_range" class="input-control">
-                  <option value="Exclusively close range">Exclusively close range</option>
-                  <option value="Exclusively far range">Exclusively far range</option>
-                  <option value="Dynamic mix of ranges">Dynamic mix of ranges</option>
-                  <option value="Defensive / no shots">Defensive / no shots</option>
-                </select>
+
+              <div class="input-group">
+                <label class="input-label">Preferred Cycle Range (Select one)</label>
+                <div class="range-toggle-container">
+                  <button type="button" class="range-toggle-btn" data-field="tele_range" data-value="Almost anywhere">Almost anywhere</button>
+                  <button type="button" class="range-toggle-btn" data-field="tele_range" data-value="One or two locations">One or two locations</button>
+                  <button type="button" class="range-toggle-btn" data-field="tele_range" data-value="Can't Tell">Can't Tell</button>
+                </div>
+                <input type="hidden" id="tele_range" value="Can't Tell">
               </div>
-            </div>
 
-            <div class="input-group">
-              <label class="input-label" for="defense">Defensive Interaction Profile</label>
-              <select id="defense" class="input-control">
-                <option value="No intentional contact">No intentional contact</option>
-                <option value="Light defense">Light defense</option>
-                <option value="Heavy defense">Heavy defense</option>
-              </select>
-            </div>
-
-            <div class="input-group">
-              <label class="input-label" for="timetopark">Time Duration to Complete Park</label>
-              <select id="timetopark" class="input-control">
-                <option value="1-5 seconds">1-5 seconds</option>
-                <option value="6-10 seconds">6-10 seconds</option>
-                <option value="More than 15 seconds">More than 15 seconds</option>
-              </select>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-              <div class="input-group" style="margin-bottom: 0;">
-                <label class="input-label" for="park_base">Terminal Base parking</label>
-                <select id="park_base" class="input-control">
-                  <option value="Parked inside base">Parked inside base</option>
-                  <option value="Incomplete / failed base park">Incomplete / failed base park</option>
-                  <option value="Did not attempt">Did not attempt</option>
-                </select>
+              <div class="input-group">
+                <label class="input-label">Defensive Interaction Profile (Select one)</label>
+                <div class="range-toggle-container">
+                  <button type="button" class="range-toggle-btn" data-field="defense" data-value="No intentional contact">No intentional contact</button>
+                  <button type="button" class="range-toggle-btn" data-field="defense" data-value="Occasionally made contact">Occasionally made contact</button>
+                  <button type="button" class="range-toggle-btn" data-field="defense" data-value="Frequently looked to make contact">Frequently looked to make contact</button>
+                </div>
+                <input type="hidden" id="defense" value="No intentional contact">
               </div>
-              <div class="input-group" style="margin-bottom: 0;">
-                <label class="input-label" for="park_bonus">Terminal Substage Parking</label>
-                <select id="park_bonus" class="input-control">
-                  <option value="Parked inside substage">Parked inside substage</option>
-                  <option value="Incomplete / failed substage park">Incomplete / failed substage park</option>
-                  <option value="Did not attempt">Did not attempt</option>
-                </select>
+
+              <div class="input-group">
+                <label class="input-label">Time Duration to Complete Park (Select one)</label>
+                <div class="range-toggle-container">
+                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="1-5 seconds">1-5 seconds</button>
+                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="6-10 seconds">6-10 seconds</button>
+                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="11-15 seconds">11-15 seconds</button>
+                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value=">15 seconds">&gt;15 seconds</button>
+                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="Did not attempt">Did not attempt</button>
+                </div>
+                <input type="hidden" id="timetopark" value="Did not attempt">
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Terminal Base Parking Status (Select one)</label>
+                <div class="range-toggle-container">
+                  <button type="button" class="range-toggle-btn" data-field="park_base" data-value="Did not attempt">Did not attempt</button>
+                  <button type="button" class="range-toggle-btn" data-field="park_base" data-value="Partially parked">Partially parked</button>
+                  <button type="button" class="range-toggle-btn" data-field="park_base" data-value="Fully parked without enough room">Fully parked w/o room</button>
+                  <button type="button" class="range-toggle-btn" data-field="park_base" data-value="Fully parked with enough room">Fully parked w/ room</button>
+                </div>
+                <input type="hidden" id="park_base" value="Did not attempt">
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Terminal Substage Parking Bonus (Select one)</label>
+                <div class="range-toggle-container">
+                  <button type="button" class="range-toggle-btn" data-field="park_bonus" data-value="No bonus">No bonus</button>
+                  <button type="button" class="range-toggle-btn" data-field="park_bonus" data-value="Both robots fully in base">Both robots fully in base</button>
+                </div>
+                <input type="hidden" id="park_bonus" value="No bonus">
               </div>
             </div>
             <div style="margin-bottom: 16px;">

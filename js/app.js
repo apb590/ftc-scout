@@ -244,6 +244,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // Gate Open Log Actions
+  const btnGateOpen = document.getElementById("btn-gate-open");
+  const btnGateUndo = document.getElementById("btn-gate-undo");
+  const gateOpnInput = document.getElementById("gate_opn");
+
+  if (btnGateOpen && gateOpnInput) {
+    btnGateOpen.addEventListener("click", () => {
+      const current = parseInt(gateOpnInput.value) || 0;
+      gateOpnInput.value = current + 1;
+      const display = document.getElementById("val-gate_opn");
+      if (display) display.textContent = current + 1;
+      actionHistoryStack.push({ phase: "teleop", field: "gate_opn", increment: 1 });
+      triggerAutosave();
+    });
+  }
+  
+  if (btnGateUndo && gateOpnInput) {
+    btnGateUndo.addEventListener("click", () => {
+      const current = parseInt(gateOpnInput.value) || 0;
+      if (current > 0) {
+        gateOpnInput.value = current - 1;
+        const display = document.getElementById("val-gate_opn");
+        if (display) display.textContent = current - 1;
+        
+        // Remove matching action from stack if present
+        const matchIdx = actionHistoryStack.map(x => x.field).lastIndexOf("gate_opn");
+        if (matchIdx !== -1) {
+          actionHistoryStack.splice(matchIdx, 1);
+        }
+        triggerAutosave();
+      }
+    });
+  }
+
   // B. Generic Mutually-Exclusive Range & Parking Toggles
   document.querySelectorAll(".range-toggle-btn[data-field]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -913,7 +947,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function resetFormCounters() {
     const counterFields = [
       "preload_made", "preload_miss", "pickup_made", "pickup_miss", "pickup_ovw",
-      "close_made", "close_miss", "close_ovw", "far_made", "far_miss", "far_ovw"
+      "close_made", "close_miss", "close_ovw", "far_made", "far_miss", "far_ovw", "gate_opn"
     ];
     counterFields.forEach(field => {
       const hidden = document.getElementById(field);
@@ -927,17 +961,41 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Reset range and parking toggles
     document.querySelectorAll(".range-toggle-btn[data-field]").forEach(btn => btn.classList.remove("active"));
-    const autoRangeInput = document.getElementById("auto_range");
-    if (autoRangeInput) autoRangeInput.value = "No shots taken / unknown";
-    const autoParkInput = document.getElementById("auto_park");
-    if (autoParkInput) autoParkInput.value = "None";
+    
+    // Set explicit default values for all range-toggle and mutually exclusive fields
+    const rangeDefaults = {
+      "auto_range": "No shots taken / unknown",
+      "auto_park": "On Launch Line",
+      "auto_gate": "Avoided gate",
+      "telesetup": "Unsure / not a distinct first step",
+      "tele_pattern": "unsure",
+      "tele_range": "Can't Tell",
+      "defense": "No intentional contact",
+      "timetopark": "Did not attempt",
+      "park_base": "Did not attempt",
+      "park_bonus": "No bonus"
+    };
+
+    for (const [field, defVal] of Object.entries(rangeDefaults)) {
+      const input = document.getElementById(field);
+      if (input) input.value = defVal;
+      
+      // Auto-activate the default button in PWA UI visually
+      const defaultBtn = document.querySelector(`.range-toggle-btn[data-field='${field}'][data-value='${defVal}']`);
+      if (defaultBtn) {
+        defaultBtn.classList.add("active");
+      }
+    }
 
     // Reset penalty toggle checkbox buttons
     document.querySelectorAll(".toggle-checkbox-btn").forEach(btn => btn.classList.remove("active"));
-    const autoPenalInput = document.getElementById("auto_penal");
-    if (autoPenalInput) autoPenalInput.value = "";
-    const telePenalInput = document.getElementById("tele_penal");
-    if (telePenalInput) telePenalInput.value = "";
+    
+    // Reset all checkboxes hidden values
+    const checkboxFields = ["auto_pattern", "auto_midline", "auto_penal", "tele_collection", "tele_penal"];
+    checkboxFields.forEach(field => {
+      const input = document.getElementById(field);
+      if (input) input.value = "";
+    });
 
     // Reset segmented selector states back to default (No / No failures)
     document.querySelectorAll(".segment-btn[data-value='No']").forEach(btn => {
