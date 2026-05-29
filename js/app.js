@@ -106,6 +106,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   redBtn.addEventListener("click", () => setAllianceStyle("Red"));
   blueBtn.addEventListener("click", () => setAllianceStyle("Blue"));
 
+  // Re-establish team dropdown change handler to auto-select alliance color
+  const teamnoContainer = document.getElementById("teamno-container");
+  const matchnoInput = document.getElementById("matchno");
+  const testMatchNumbers = [123, 999, 9999, 1234, 1000];
+
+  if (teamnoContainer) {
+    teamnoContainer.addEventListener("change", (e) => {
+      if (e.target && e.target.id === "teamno") {
+        const teamVal = e.target.value;
+        const matchVal = parseInt(matchnoInput ? matchnoInput.value : "0");
+        
+        if (testMatchNumbers.includes(matchVal)) {
+          const selectedTeam = parseInt(teamVal);
+          if (selectedTeam === 88881 || selectedTeam === 88882) {
+            setAllianceStyle("Red");
+          } else if (selectedTeam === 88883 || selectedTeam === 88884) {
+            setAllianceStyle("Blue");
+          }
+        } else {
+          const savedSchedule = localStorage.getItem("qual_schedule");
+          const schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
+          if (matchVal && schedule && schedule[matchVal]) {
+            updateAllianceColorForTeam(teamVal, schedule[matchVal]);
+          }
+        }
+        triggerAutosave();
+      }
+    });
+  }
+
   // 5. Segmented Button Generic Handlers
   const genericSegmentBtns = document.querySelectorAll(".segment-btn[data-field]");
   genericSegmentBtns.forEach(btn => {
@@ -291,7 +321,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (btn.classList.contains("active")) {
           // Deactivate
           btn.classList.remove("active");
-          hiddenInput.value = fieldId === "auto_range" ? "No shots taken / unknown" : "None";
+          
+          const rangeDefaults = {
+            "auto_range": "No shots taken / unknown",
+            "auto_park": "On Launch Line",
+            "auto_gate": "Avoided gate",
+            "telesetup": "Unsure / not a distinct first step",
+            "tele_pattern": "unsure",
+            "tele_range": "Can't Tell",
+            "defense": "No intentional contact",
+            "timetopark": "",
+            "park_base": "Did not attempt",
+            "park_bonus": "No bonus"
+          };
+          
+          hiddenInput.value = rangeDefaults[fieldId] !== undefined ? rangeDefaults[fieldId] : "None";
         } else {
           // Activate this one, deactivate siblings
           container.querySelectorAll(".range-toggle-btn").forEach(b => b.classList.remove("active"));
@@ -971,7 +1015,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       "tele_pattern": "unsure",
       "tele_range": "Can't Tell",
       "defense": "No intentional contact",
-      "timetopark": "Did not attempt",
+      "timetopark": "",
       "park_base": "Did not attempt",
       "park_bonus": "No bonus"
     };
@@ -980,10 +1024,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const input = document.getElementById(field);
       if (input) input.value = defVal;
       
-      // Auto-activate the default button in PWA UI visually
-      const defaultBtn = document.querySelector(`.range-toggle-btn[data-field='${field}'][data-value='${defVal}']`);
-      if (defaultBtn) {
-        defaultBtn.classList.add("active");
+      // Auto-activate the default button in PWA UI visually (only if default is not empty)
+      if (defVal !== "") {
+        const defaultBtn = document.querySelector(`.range-toggle-btn[data-field='${field}'][data-value='${defVal}']`);
+        if (defaultBtn) {
+          defaultBtn.classList.add("active");
+        }
       }
     }
 

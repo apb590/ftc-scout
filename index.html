@@ -281,6 +281,16 @@
           <!-- SECTION 4: TELEOPERATED PERIOD -->
           <div class="premium-card" style="padding: 12px; margin-bottom: 12px;">
             <h2 class="card-title" style="margin-bottom: 10px;">Teleop Phase</h2>
+            <div class="input-group" style="margin-bottom: 16px;">
+              <label class="input-label">First Step Setup Strategy (Select one)</label>
+              <div class="range-toggle-container">
+                <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Unsure / not a distinct first step">Unsure / None</button>
+                <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Aligned near gate">Aligned near gate</button>
+                <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Spike">Spike</button>
+                <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Blocking opponent">Blocking opponent</button>
+              </div>
+              <input type="hidden" id="telesetup" value="Unsure / not a distinct first step">
+            </div>
 
             <div class="teleop-flex-container">
               
@@ -387,16 +397,7 @@
             <h2 class="card-title">Endgame & Review</h2>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-              <div class="input-group">
-                <label class="input-label">First Step Setup Strategy (Select one)</label>
-                <div class="range-toggle-container">
-                  <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Unsure / not a distinct first step">Unsure / None</button>
-                  <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Aligned near gate">Aligned near gate</button>
-                  <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Spike">Spike</button>
-                  <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Blocking opponent">Blocking opponent</button>
-                </div>
-                <input type="hidden" id="telesetup" value="Unsure / not a distinct first step">
-              </div>
+
 
               <div class="input-group">
                 <label class="input-label">Intake Collection Strategy (Select all that apply)</label>
@@ -409,7 +410,7 @@
               </div>
 
               <div class="input-group">
-                <label class="input-label">Intake Flow Route Pattern (Select one)</label>
+                <label class="input-label">Attempted Pattern (Select one)</label>
                 <div class="range-toggle-container">
                   <button type="button" class="range-toggle-btn" data-field="tele_pattern" data-value="yes">yes</button>
                   <button type="button" class="range-toggle-btn" data-field="tele_pattern" data-value="no">no</button>
@@ -419,7 +420,7 @@
               </div>
 
               <div class="input-group">
-                <label class="input-label">Preferred Cycle Range (Select one)</label>
+                <label class="input-label">Preferred Shooting (Select one)</label>
                 <div class="range-toggle-container">
                   <button type="button" class="range-toggle-btn" data-field="tele_range" data-value="Almost anywhere">Almost anywhere</button>
                   <button type="button" class="range-toggle-btn" data-field="tele_range" data-value="One or two locations">One or two locations</button>
@@ -439,19 +440,19 @@
               </div>
 
               <div class="input-group">
-                <label class="input-label">Time Duration to Complete Park (Select one)</label>
+                <label class="input-label">Time to Complete Park (Select one)</label>
                 <div class="range-toggle-container">
+                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="Did not attempt">Did not attempt</button>
                   <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="1-5 seconds">1-5 seconds</button>
                   <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="6-10 seconds">6-10 seconds</button>
                   <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="11-15 seconds">11-15 seconds</button>
                   <button type="button" class="range-toggle-btn" data-field="timetopark" data-value=">15 seconds">&gt;15 seconds</button>
-                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="Did not attempt">Did not attempt</button>
                 </div>
-                <input type="hidden" id="timetopark" value="Did not attempt">
+                <input type="hidden" id="timetopark" value="">
               </div>
 
               <div class="input-group">
-                <label class="input-label">Terminal Base Parking Status (Select one)</label>
+                <label class="input-label">Parking (Select one)</label>
                 <div class="range-toggle-container">
                   <button type="button" class="range-toggle-btn" data-field="park_base" data-value="Did not attempt">Did not attempt</button>
                   <button type="button" class="range-toggle-btn" data-field="park_base" data-value="Partially parked">Partially parked</button>
@@ -462,9 +463,8 @@
               </div>
 
               <div class="input-group">
-                <label class="input-label">Terminal Substage Parking Bonus (Select one)</label>
+                <label class="input-label">Full Park Bonus (Select one)</label>
                 <div class="range-toggle-container">
-                  <button type="button" class="range-toggle-btn" data-field="park_bonus" data-value="No bonus">No bonus</button>
                   <button type="button" class="range-toggle-btn" data-field="park_bonus" data-value="Both robots fully in base">Both robots fully in base</button>
                 </div>
                 <input type="hidden" id="park_bonus" value="No bonus">
