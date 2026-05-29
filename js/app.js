@@ -574,15 +574,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     settingsModal.classList.remove("active");
   });
 
-  saveSettingsBtn.addEventListener("click", () => {
-    const newEndpoint = settingSyncUrlInput.value.trim();
+  saveSettingsBtn.addEventListener("click", async () => {
+    let newEndpoint = settingSyncUrlInput.value.trim();
 
     if (newEndpoint) {
+      // Strip any trailing query parameters (like ?action=...) if accidentally copy-pasted
+      if (newEndpoint.includes("?")) {
+        newEndpoint = newEndpoint.split("?")[0];
+      }
       window.syncManager.setSyncEndpoint(newEndpoint);
     }
 
     settingsModal.classList.remove("active");
-    showToast("Settings Saved Successfully!");
+    showToast("Settings Saved! Loading Events...");
+    
+    // Auto-reload the dropdown instantly
+    try {
+      await initEventDropdown();
+    } catch (e) {
+      console.error("[Settings] Failed to reload dropdown:", e);
+    }
   });
 
   // --- Upgraded Custom Webapp UI Controls ---
