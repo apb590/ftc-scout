@@ -29,14 +29,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("[App] Failed to trigger qualification schedule fetch:", e);
     }
   }
-  
+
   // Initialize active events dropdown and pre-event setup
   try {
     await initEventDropdown();
   } catch (e) {
     console.error("[App] Failed to initialize active events dropdown:", e);
   }
-  
+
   // Restore and save Scouter Name to localStorage to survive page refreshes
   try {
     const usernameInput = document.getElementById("username");
@@ -57,10 +57,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         .register("./sw.js")
         .then((reg) => {
           console.log("[Service Worker] Registered successfully with scope:", reg.scope);
-          
+
           // Force immediate update check on every load
           reg.update();
-          
+
           // If an update is already waiting, trigger activation
           if (reg.waiting) {
             console.log("[Service Worker] New service worker waiting. Activating...");
@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Active Event Dropdown Populator
   async function initEventDropdown() {
     if (!eventSelect) return;
-    
+
     // 1. Populate immediately from local cache if available (instant load)
     let cachedEvents = [];
     try {
@@ -152,11 +152,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (e) {
       console.warn("[App] Failed to parse cached event_config on early load:", e);
     }
-    
+
     if (Array.isArray(cachedEvents) && cachedEvents.length > 0) {
       populateDropdownWithOptions(cachedEvents);
     }
-    
+
     // 2. Fetch targetEvent and latest events from network — AWAIT the event config
     //    so dropdown is populated BEFORE handleEventSelectionChange runs.
     if (window.syncManager) {
@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
           })
           .catch(e => console.warn("[App] Failed to fetch active live event in background:", e));
-        
+
         // Event config — AWAIT this so dropdown is ready before we proceed
         try {
           const events = await window.syncManager.fetchEventConfig();
@@ -185,7 +185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
     }
-    
+
     // 3. Restore sticky event AFTER dropdown is populated
     let restoredEvent = "";
     if (window.preeventUrlParams && window.preeventUrlParams.event) {
@@ -193,21 +193,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       restoredEvent = localStorage.getItem("sticky_event") || "";
     }
-    
+
     if (restoredEvent) {
       eventSelect.value = restoredEvent;
     }
-    
+
     function updateDefaultModeForSelectedEvent() {
       const selectedEvent = eventSelect ? eventSelect.value : "";
       if (!selectedEvent) return;
-      
+
       if (window.preeventUrlParams || window.location.search.includes("mode=preevent")) {
         if (modeBtnResearch) modeBtnResearch.classList.add("active");
         if (modeBtnLive) modeBtnLive.classList.remove("active");
         return;
       }
-      
+
       // Smart date-based future event check
       let isFutureEvent = false;
       try {
@@ -224,7 +224,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } catch (e) {
         console.warn("[App] Failed to check event date:", e);
       }
-      
+
       if (selectedEvent === activeLiveEventCode && !isFutureEvent) {
         if (modeBtnLive) modeBtnLive.classList.add("active");
         if (modeBtnResearch) modeBtnResearch.classList.remove("active");
@@ -252,7 +252,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       updateDefaultModeForSelectedEvent();
       handleEventSelectionChange();
     });
-    
+
     updateDefaultModeForSelectedEvent();
     await handleEventSelectionChange();
   }
@@ -261,19 +261,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!eventSelect) return;
     const currentValue = eventSelect.value;
     eventSelect.innerHTML = "";
-    
+
     const placeholderOpt = document.createElement("option");
     placeholderOpt.value = "";
     placeholderOpt.textContent = "-- Select Event --";
     eventSelect.appendChild(placeholderOpt);
-    
+
     events.forEach(e => {
       const opt = document.createElement("option");
       opt.value = e.code;
       opt.textContent = `${e.name} (${e.code.toUpperCase()})`;
       eventSelect.appendChild(opt);
     });
-    
+
     if (currentValue && events.some(e => e.code === currentValue)) {
       eventSelect.value = currentValue;
     }
@@ -285,13 +285,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const standardMatchInput = document.getElementById("matchno");
     const standardTeamInput = document.getElementById("teamno");
     const standardAllianceGroup = document.getElementById("alliance-container") ? document.getElementById("alliance-container").closest(".input-group") : null;
-    
+
     if (selectedEvent && window.syncManager) {
       // Trigger non-blocking background schedule caching for the newly selected event
       window.syncManager.fetchAndCacheQualSchedule(selectedEvent)
         .catch(e => console.warn("[App] Failed to pre-cache schedule for:", selectedEvent));
     }
-    
+
     if (!selectedEvent) {
       if (preeventContainer) preeventContainer.style.display = "none";
       if (standardSetupInputs) standardSetupInputs.style.display = "flex";
@@ -301,21 +301,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (scoutingModeGroup) scoutingModeGroup.style.display = "none";
       return;
     }
-    
+
     if (scoutingModeGroup) scoutingModeGroup.style.display = "block";
-    
+
     let activeMode = "live";
     if (modeBtnResearch && modeBtnResearch.classList.contains("active")) {
       activeMode = "research";
     }
-    
+
     if (activeMode === "live") {
       if (preeventContainer) preeventContainer.style.display = "none";
       if (standardSetupInputs) standardSetupInputs.style.display = "flex";
       if (standardAllianceGroup) standardAllianceGroup.style.display = "block";
       if (standardMatchInput) standardMatchInput.required = true;
       if (standardTeamInput) standardTeamInput.required = true;
-      
+
       updateTeamSelector();
     } else {
       if (standardSetupInputs) standardSetupInputs.style.display = "none";
@@ -329,13 +329,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         standardTeamInput.value = "";
       }
       if (preeventContainer) preeventContainer.style.display = "block";
-      
+
       if (preeventTeamSelect) {
         preeventTeamSelect.innerHTML = "<option value=''>-- Loading Teams --</option>";
       }
-      
+
       preEventData = await window.syncManager.fetchPreEventTeamList(selectedEvent);
-      
+
       if (preEventData) {
         populatePreEventTeamSelector(preEventData);
       } else {
@@ -349,32 +349,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Pre-event Team Dropdown Prioritization Sorting
   function populatePreEventTeamSelector(data) {
     if (!preeventTeamSelect) return;
-    
+
     const topTeams = data.topTeams || [];
     const completedMatches = data.completedMatches || [];
-    
+
     const completionsMap = {};
     completedMatches.forEach(m => {
       completionsMap[m.team] = (completionsMap[m.team] || 0) + 1;
     });
-    
+
     const sortedTeams = [...topTeams].sort((a, b) => {
       const compA = completionsMap[a.num] || 0;
       const compB = completionsMap[b.num] || 0;
       const isScoutedA = compA > 0;
       const isScoutedB = compB > 0;
-      
+
       if (isScoutedA && !isScoutedB) return 1;
       if (!isScoutedA && isScoutedB) return -1;
       return b.npOPR - a.npOPR;
     });
-    
+
     preeventTeamSelect.innerHTML = "";
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = "-- Choose Team --";
     preeventTeamSelect.appendChild(placeholder);
-    
+
     sortedTeams.forEach(t => {
       const comp = completionsMap[t.num] || 0;
       const opt = document.createElement("option");
@@ -384,7 +384,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       opt.setAttribute("data-autoopr", t.autoOPR || 0);
       opt.setAttribute("data-teleopr", t.teleOPR || 0);
       opt.setAttribute("data-awards", t.awardsStr || "");
-      
+
       if (comp > 0) {
         opt.textContent = `Team ${t.num} - ${t.name} (Scouted: ${comp} match${comp > 1 ? "es" : ""}, OPR: ${t.npOPR})`;
         opt.style.color = "var(--text-secondary)";
@@ -394,7 +394,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       preeventTeamSelect.appendChild(opt);
     });
-    
+
     if (window.preeventUrlParams) {
       const params = window.preeventUrlParams;
       if (params.team) {
@@ -407,13 +407,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         const btn = document.querySelector(`.segment-btn[id^='preevent-alliance-'][data-value='${params.alliance}']`);
         if (btn) btn.click();
       }
-      
+
       handlePreEventSelectionUpdates();
-      
+
       window.preeventUrlParams = null;
       try {
         window.history.replaceState({}, document.title, window.location.pathname);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -421,13 +421,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   function handlePreEventSelectionUpdates() {
     const selectedTeam = preeventTeamSelect ? preeventTeamSelect.value : "";
     const matchVal = preeventMatchInput ? preeventMatchInput.value : "";
-    
+
     let allianceVal = "";
     const activeAllianceBtn = preeventAllianceContainer ? preeventAllianceContainer.querySelector(".segment-btn.active") : null;
     if (activeAllianceBtn) {
       allianceVal = activeAllianceBtn.getAttribute("data-value");
     }
-    
+
     const standardTeamInput = document.getElementById("teamno");
     if (standardTeamInput) {
       standardTeamInput.value = selectedTeam;
@@ -439,7 +439,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (allianceVal) {
       allianceInput.value = allianceVal;
     }
-    
+
     if (!selectedTeam) {
       if (preeventLinksContainer) preeventLinksContainer.innerHTML = "";
       if (preeventScoutedStatus) {
@@ -448,22 +448,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       return;
     }
-    
+
     const activeOption = preeventTeamSelect.selectedOptions[0];
     const lastEventRaw = activeOption ? activeOption.getAttribute("data-lastevent") : "";
     let lastEventCode = "";
-    
+
     if (lastEventRaw.includes("|")) {
       lastEventCode = lastEventRaw.split("|")[0].trim();
     } else {
       lastEventCode = lastEventRaw.trim();
     }
-    
+
     if (preeventLinksContainer) {
       const targetUrl = lastEventCode
         ? `https://ftc-events.firstinspires.org/2025/${lastEventCode.toUpperCase()}/qualifications?team=${selectedTeam}`
         : `https://ftc-events.firstinspires.org/2025/team/${selectedTeam}`;
-      
+
       const badgeLabel = lastEventCode
         ? `📺 Watch ${lastEventCode.toUpperCase()} Videos`
         : `🌐 FIRST Matches (${selectedTeam})`;
@@ -474,11 +474,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         </a>
       `;
     }
-    
+
     if (preeventScoutedStatus && preEventData) {
       const completed = preEventData.completedMatches || [];
       const teamMatches = completed.filter(m => String(m.team) === String(selectedTeam));
-      
+
       if (teamMatches.length > 0) {
         const matchesList = teamMatches.map(m => `Q${m.match}`).join(", ");
         preeventScoutedStatus.innerHTML = `⚠️ Already scouted at this event: <strong>Match ${matchesList}</strong>`;
@@ -585,7 +585,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target && e.target.id === "teamno") {
         const teamVal = e.target.value;
         const matchVal = parseInt(matchnoInput ? matchnoInput.value : "0");
-        
+
         if (testMatchNumbers.includes(matchVal)) {
           const selectedTeam = parseInt(teamVal);
           if (selectedTeam === 88881 || selectedTeam === 88882) {
@@ -617,7 +617,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const fieldId = btn.getAttribute("data-field");
       const value = btn.getAttribute("data-value");
       const container = btn.closest(".segmented-container");
-      
+
       // Reset siblings active states
       container.querySelectorAll(".segment-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
@@ -690,7 +690,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   const openSettingsBtn = document.getElementById("open-settings-btn");
   const closeSettingsBtn = document.getElementById("close-settings-modal-btn");
   const saveSettingsBtn = document.getElementById("save-settings-btn");
+  const refreshEventsBtn = document.getElementById("refresh-events-btn");
   const settingSyncUrlInput = document.getElementById("setting-sync-endpoint");
+
+  async function saveSettingsAndReloadEvents({ closeModal = true, toastMessage = "Settings Saved! Loading Events..." } = {}) {
+    let newEndpoint = settingSyncUrlInput ? settingSyncUrlInput.value.trim() : "";
+
+    // When invoked by the inline refresh button, the settings modal may never have
+    // been opened. In that case, use the currently persisted endpoint so refresh
+    // follows the exact same save/apply/reload path without accidentally clearing it.
+    if (!newEndpoint && window.syncManager) {
+      newEndpoint = window.syncManager.getSyncEndpoint() || "";
+      if (settingSyncUrlInput) settingSyncUrlInput.value = newEndpoint;
+    }
+
+    if (newEndpoint && window.syncManager) {
+      // Strip any trailing query parameters (like ?action=...) if accidentally copy-pasted
+      if (newEndpoint.includes("?")) {
+        newEndpoint = newEndpoint.split("?")[0];
+      }
+      window.syncManager.setSyncEndpoint(newEndpoint);
+      if (settingSyncUrlInput) settingSyncUrlInput.value = newEndpoint;
+    }
+
+    if (closeModal && settingsModal) {
+      settingsModal.classList.remove("active");
+    }
+
+    showToast(toastMessage);
+
+    // Auto-reload the dropdown instantly
+    try {
+      await initEventDropdown();
+    } catch (e) {
+      console.error("[Settings] Failed to reload dropdown:", e);
+      showToast("Failed to load events. Check settings.");
+    }
+  }
 
   openSettingsBtn.addEventListener("click", () => {
     // Populate current local settings values
@@ -702,27 +738,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     settingsModal.classList.remove("active");
   });
 
-  saveSettingsBtn.addEventListener("click", async () => {
-    let newEndpoint = settingSyncUrlInput.value.trim();
-
-    if (newEndpoint) {
-      // Strip any trailing query parameters (like ?action=...) if accidentally copy-pasted
-      if (newEndpoint.includes("?")) {
-        newEndpoint = newEndpoint.split("?")[0];
-      }
-      window.syncManager.setSyncEndpoint(newEndpoint);
-    }
-
-    settingsModal.classList.remove("active");
-    showToast("Settings Saved! Loading Events...");
-    
-    // Auto-reload the dropdown instantly
-    try {
-      await initEventDropdown();
-    } catch (e) {
-      console.error("[Settings] Failed to reload dropdown:", e);
-    }
+  saveSettingsBtn.addEventListener("click", () => {
+    saveSettingsAndReloadEvents({
+      closeModal: true,
+      toastMessage: "Settings Saved! Loading Events..."
+    });
   });
+
+  if (refreshEventsBtn) {
+    refreshEventsBtn.addEventListener("click", () => {
+      saveSettingsAndReloadEvents({
+        closeModal: false,
+        toastMessage: "Refreshing Events..."
+      });
+    });
+  }
 
   // --- Upgraded Custom Webapp UI Controls ---
   // A. Preload Log Actions (Strict 3 Max sum combined between Scored & Missed)
@@ -774,7 +804,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       triggerAutosave();
     });
   }
-  
+
   if (btnGateUndo && gateOpnInput) {
     btnGateUndo.addEventListener("click", () => {
       const current = parseInt(gateOpnInput.value) || 0;
@@ -782,7 +812,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         gateOpnInput.value = current - 1;
         const display = document.getElementById("val-gate_opn");
         if (display) display.textContent = current - 1;
-        
+
         // Remove matching action from stack if present
         const matchIdx = actionHistoryStack.map(x => x.field).lastIndexOf("gate_opn");
         if (matchIdx !== -1) {
@@ -799,14 +829,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       const fieldId = btn.getAttribute("data-field");
       const val = btn.getAttribute("data-value");
       const hiddenInput = document.getElementById(fieldId);
-      
+
       if (hiddenInput) {
         const container = btn.closest(".range-toggle-container");
-        
+
         if (btn.classList.contains("active")) {
           // Deactivate
           btn.classList.remove("active");
-          
+
           const rangeDefaults = {
             "auto_range": "No shots taken / unknown",
             "auto_park": "On Launch Line",
@@ -819,7 +849,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             "park_base": "Did not attempt",
             "park_bonus": "No bonus"
           };
-          
+
           hiddenInput.value = rangeDefaults[fieldId] !== undefined ? rangeDefaults[fieldId] : "None";
         } else {
           // Activate this one, deactivate siblings
@@ -839,7 +869,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const container = btn.closest(".toggle-checkbox-container");
       const fieldId = container.getAttribute("data-field");
       const hiddenInput = document.getElementById(fieldId);
-      
+
       if (hiddenInput) {
         const activeVals = Array.from(container.querySelectorAll(".toggle-checkbox-btn.active"))
           .map(b => b.getAttribute("data-value"));
@@ -851,7 +881,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 9. Active Form Buffer Autosave Trigger
   let autosaveTimeout = null;
-  
+
   function triggerAutosave() {
     clearTimeout(autosaveTimeout);
     // Debounce autosave to run 600ms after final keystroke
@@ -878,7 +908,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Compile full form data object (incorporating 35 target schema elements)
   function compileFormStateJSON() {
     const data = {};
-    
+
     // Core inputs (1-35 mapped fields)
     const elementsToIngest = [
       "teamno", "matchno", "alliance", "robotpos", "automove",
@@ -909,10 +939,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Append pre-event schema fields
     const selectedEvent = document.getElementById("event-select") ? document.getElementById("event-select").value : "";
     const isPre = (selectedEvent && selectedEvent !== activeLiveEventCode) ? 1 : 0;
-    
+
     data.is_preevent = isPre;
     data.upcoming_event = isPre ? selectedEvent : "";
-    
+
     let scoutedEventVal = "";
     if (isPre) {
       const teamSel = document.getElementById("preevent-team-select");
@@ -968,7 +998,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Restore Canvas Pin crosshair overlay
       // Morph the team number selector if match was restored
       updateTeamSelector();
-      
+
       // If team selector has a value, restore it as select option if applicable
       const teamSelector = document.getElementById("teamno");
       if (teamSelector && draft.teamno) {
@@ -991,7 +1021,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const field = container.getAttribute("data-field");
         const val = draft[field] || "";
         const activeVals = val.split(", ").map(v => v.trim()).filter(Boolean);
-        
+
         container.querySelectorAll(".toggle-checkbox-btn").forEach(btn => {
           const btnVal = btn.getAttribute("data-value");
           if (activeVals.includes(btnVal)) {
@@ -1014,7 +1044,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (evSelect && draft.upcoming_event) {
         evSelect.value = draft.upcoming_event;
         await handleEventSelectionChange();
-        
+
         // Restore pre-event inputs if in pre-event mode
         if (draft.is_preevent) {
           const preTeamSel = document.getElementById("preevent-team-select");
@@ -1047,27 +1077,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function updateTeamSelector() {
     if (!matchnoInput || !teamnoContainer) return;
-    
+
     const matchVal = parseInt(matchnoInput.value);
     const testDataBanner = document.getElementById("test-data-banner");
-    
+
     // Check if it is a test match number
     if (testMatchNumbers.includes(matchVal)) {
       if (testDataBanner) {
         testDataBanner.style.display = "block";
       }
-      
+
       let teamSelect = document.getElementById("teamno");
       if (!teamSelect || teamSelect.tagName !== "SELECT") {
         const selectEl = document.createElement("select");
         selectEl.id = "teamno";
         selectEl.className = "input-control";
         selectEl.required = true;
-        
+
         teamnoContainer.innerHTML = "";
         teamnoContainer.appendChild(selectEl);
         teamSelect = selectEl;
-        
+
         // Add event listeners to autosave and update alliance color based on test team
         teamSelect.addEventListener("change", () => {
           const selectedTeam = parseInt(teamSelect.value);
@@ -1079,23 +1109,23 @@ document.addEventListener("DOMContentLoaded", async () => {
           triggerAutosave();
         });
       }
-      
+
       const currentValue = teamSelect.value;
       teamSelect.innerHTML = "";
-      
+
       // Default placeholder
       const defaultOpt = document.createElement("option");
       defaultOpt.value = "";
       defaultOpt.textContent = "-- Select Test Team --";
       teamSelect.appendChild(defaultOpt);
-      
+
       const testTeams = [
         { num: 88881, label: "88881 (Red Test Team)", alliance: "Red" },
         { num: 88882, label: "88882 (Red Test Team)", alliance: "Red" },
         { num: 88883, label: "88883 (Blue Test Team)", alliance: "Blue" },
         { num: 88884, label: "88884 (Blue Test Team)", alliance: "Blue" }
       ];
-      
+
       testTeams.forEach(t => {
         const opt = document.createElement("option");
         opt.value = t.num;
@@ -1107,7 +1137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         teamSelect.appendChild(opt);
       });
-      
+
       if (currentValue && testTeams.some(t => String(t.num) === String(currentValue))) {
         teamSelect.value = currentValue;
       }
@@ -1117,7 +1147,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       const eventSelect = document.getElementById("event-select");
       const selectedEvent = eventSelect ? eventSelect.value : "";
-      
+
       let savedSchedule = null;
       if (selectedEvent) {
         savedSchedule = localStorage.getItem(`qual_schedule_${selectedEvent}`);
@@ -1125,52 +1155,52 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!savedSchedule) {
         savedSchedule = localStorage.getItem("qual_schedule");
       }
-      
+
       let schedule = null;
       try {
         schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
       } catch (e) {
         console.warn("[App] Failed to parse qual_schedule:", e);
       }
-      
+
       // Find if the match is in the schedule
       if (matchVal && schedule && schedule[matchVal]) {
         const matchDetails = schedule[matchVal];
-        
+
         let teamSelect = document.getElementById("teamno");
         if (!teamSelect || teamSelect.tagName !== "SELECT") {
           const selectEl = document.createElement("select");
           selectEl.id = "teamno";
           selectEl.className = "input-control";
           selectEl.required = true;
-          
+
           teamnoContainer.innerHTML = "";
           teamnoContainer.appendChild(selectEl);
           teamSelect = selectEl;
-          
+
           // Add event listeners to the new select to autosave and update alliance color
           teamSelect.addEventListener("change", () => {
             updateAllianceColorForTeam(teamSelect.value, matchDetails);
             triggerAutosave();
           });
         }
-        
+
         const currentValue = teamSelect.value;
         teamSelect.innerHTML = "";
-        
+
         // Default placeholder option
         const defaultOpt = document.createElement("option");
         defaultOpt.value = "";
         defaultOpt.textContent = "-- Select Team --";
         teamSelect.appendChild(defaultOpt);
-        
+
         const teams = [
           { num: matchDetails.red1, label: `${matchDetails.red1} (Red)`, alliance: "Red" },
           { num: matchDetails.red2, label: `${matchDetails.red2} (Red)`, alliance: "Red" },
           { num: matchDetails.blue1, label: `${matchDetails.blue1} (Blue)`, alliance: "Blue" },
           { num: matchDetails.blue2, label: `${matchDetails.blue2} (Blue)`, alliance: "Blue" }
         ];
-        
+
         teams.forEach(t => {
           if (t.num) {
             const opt = document.createElement("option");
@@ -1179,7 +1209,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             teamSelect.appendChild(opt);
           }
         });
-        
+
         // Try to preserve previous selection if it's one of the 4 teams
         if (currentValue && teams.some(t => String(t.num) === String(currentValue))) {
           teamSelect.value = currentValue;
@@ -1195,11 +1225,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           inputEl.placeholder = "e.g. 16379";
           inputEl.min = "1";
           inputEl.required = true;
-          
+
           teamnoContainer.innerHTML = "";
           teamnoContainer.appendChild(inputEl);
           teamInput = inputEl;
-          
+
           // Add event listeners
           teamInput.addEventListener("input", triggerAutosave);
           teamInput.addEventListener("change", triggerAutosave);
@@ -1278,7 +1308,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
     }
-    
+
     // Remove active and completed classes from forward steps
     for (let i = targetIndex + 1; i < phaseIds.length; i++) {
       const indicator = document.querySelector(`.progress-step[data-step="${phaseIds[i]}"]`);
@@ -1295,7 +1325,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     currentPhaseIndex = targetIndex;
-    
+
     // Smooth scroll to top of page
     window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -1330,7 +1360,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Event-Based Actions Logging & Undo Stack Logic
   let actionHistoryStack = [];
-  
+
   function logEventAction(phase, field, increment = 1) {
     const hiddenInput = document.getElementById(field);
     const displayVal = document.getElementById(`val-${field}`);
@@ -1341,11 +1371,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (displayVal) {
         displayVal.textContent = current;
       }
-      
+
       // Push to the event stack
       actionHistoryStack.push({ phase, field, increment });
       console.log(`[Event Log] Added action to stack:`, { phase, field, increment }, `Stack Size: ${actionHistoryStack.length}`);
-      
+
       triggerAutosave();
     }
   }
@@ -1355,10 +1385,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     for (let i = actionHistoryStack.length - 1; i >= 0; i--) {
       if (actionHistoryStack[i].phase === phase) {
         const action = actionHistoryStack[i];
-        
+
         // Remove from stack
         actionHistoryStack.splice(i, 1);
-        
+
         // Revert count
         const hiddenInput = document.getElementById(action.field);
         const displayVal = document.getElementById(`val-${action.field}`);
@@ -1370,7 +1400,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             displayVal.textContent = current;
           }
         }
-        
+
         console.log(`[Undo Action] Reverted action from stack:`, action, `Stack Size: ${actionHistoryStack.length}`);
         triggerAutosave();
         showToast("Last score action reverted!");
@@ -1428,7 +1458,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const finalRecord = compileFormStateJSON();
-    
+
     // Auto-prepend malfunctions to comments if breaks === Yes and malfunctions are selected
     const breaksEl = document.getElementById("breaks");
     const malfunctionsEl = document.getElementById("malfunctions");
@@ -1446,16 +1476,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Intercept with real-time Out-of-Bounds guard check (Limits: 20 auton, 50 teleop)
     const autoElements = (parseInt(finalRecord.preload_made) || 0) + (parseInt(finalRecord.pickup_made) || 0) + (parseInt(finalRecord.pickup_ovw) || 0);
     const teleOpElements = (parseInt(finalRecord.close_made) || 0) + (parseInt(finalRecord.far_made) || 0) + (parseInt(finalRecord.close_ovw) || 0) + (parseInt(finalRecord.far_ovw) || 0);
-    
+
     if (autoElements > 20 || teleOpElements > 50) {
       const confirmSubmit = confirm(`⚠️ HIGH SCORING OUTLIER DETECTED!\n\n- Auton Elements Scored: ${autoElements} (Warning limit: 20)\n- Teleop Elements Scored: ${teleOpElements} (Warning limit: 50)\n\nThese values are exceptionally high and might indicate double-tapping errors. Are you absolutely certain these match counts are correct?`);
       if (!confirmSubmit) return;
     }
-    
+
     try {
       // 1. Save finalized record to IndexedDB
       await window.dbManager.saveRecord(finalRecord);
-      
+
       // 2. Clear working autosave buffer
       await window.dbManager.clearDraft();
 
@@ -1488,7 +1518,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       showToast("Scouting Record Saved Successfully!");
-      
+
       // Switch view back to top or logs to verify
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1509,7 +1539,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Save the scouter name and active event select so they don't get lost
         const savedName = document.getElementById("username").value;
         const savedEvent = document.getElementById("event-select") ? document.getElementById("event-select").value : "";
-        
+
         // Reset form controls
         form.reset();
         resetFormCounters();
@@ -1519,7 +1549,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (canvasInstance) {
           canvasInstance.clearPin();
         }
-        
+
         // Restore scouter name and active event
         document.getElementById("username").value = savedName;
         if (savedEvent) {
@@ -1529,12 +1559,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             handleEventSelectionChange();
           }
         }
-        
+
         // Clear IndexedDB active draft buffer to prevent auto-restoring
         await window.dbManager.clearDraft();
-        
+
         showToast("Scouting Form Reset Successfully!");
-        
+
         // Scroll smoothly to top
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -1558,7 +1588,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Reset range and parking toggles
     document.querySelectorAll(".range-toggle-btn[data-field]").forEach(btn => btn.classList.remove("active"));
-    
+
     // Set explicit default values for all range-toggle and mutually exclusive fields
     const rangeDefaults = {
       "auto_range": "",
@@ -1576,12 +1606,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     for (const [field, defVal] of Object.entries(rangeDefaults)) {
       const input = document.getElementById(field);
       if (input) input.value = defVal;
-      
+
       // Auto-activate the default button in PWA UI visually (only if default is not empty)
       if (defVal !== "") {
         // Exclude park_bonus from visual pre-selection so it starts unselected
         if (field === "park_bonus") continue;
-        
+
         const defaultBtn = document.querySelector(`.range-toggle-btn[data-field='${field}'][data-value='${defVal}']`);
         if (defaultBtn) {
           defaultBtn.classList.add("active");
@@ -1591,7 +1621,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Reset penalty toggle checkbox buttons
     document.querySelectorAll(".toggle-checkbox-btn").forEach(btn => btn.classList.remove("active"));
-    
+
     // Reset all checkboxes hidden values
     const checkboxFields = ["auto_pattern", "auto_midline", "auto_penal", "tele_penal"];
     checkboxFields.forEach(field => {
@@ -1609,7 +1639,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Reset segmented selector states: clear all, then default automove to No
     document.querySelectorAll(".segment-btn").forEach(btn => btn.classList.remove("active"));
-    
+
     // Explicitly set automove default to "No"
     const automoveInput = document.getElementById("automove");
     if (automoveInput) automoveInput.value = "No";
@@ -1619,7 +1649,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Explicitly reset alliance
     const allianceInput = document.getElementById("alliance");
     if (allianceInput) allianceInput.value = "";
-    
+
     // Explicitly set breaks default to "No"
     const breaksInput = document.getElementById("breaks");
     if (breaksInput) breaksInput.value = "No";
@@ -1649,26 +1679,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   function parseCommentsAndExtractMalfunctions() {
     const commentsEl = document.getElementById("comments");
     if (!commentsEl) return;
-    
+
     let text = commentsEl.value || "";
     const match = text.match(/^\[Failures:\s*([^\]]+)\]\s*/);
     if (match) {
       const malfunctionsList = match[1];
       // Clean up the comments field text in UI
       commentsEl.value = text.replace(/^\[Failures:\s*([^\]]+)\]\s*/, "");
-      
+
       // Set malfunctions input value
       const malfunctionsInput = document.getElementById("malfunctions");
       if (malfunctionsInput) {
         malfunctionsInput.value = malfunctionsList;
       }
-      
+
       // Toggle breaks to Yes
       const breaksInput = document.getElementById("breaks");
       if (breaksInput) {
         breaksInput.value = "Yes";
       }
-      
+
       // Update segmented button active styles for breaks
       document.querySelectorAll(".segment-btn[data-field='breaks']").forEach(btn => {
         if (btn.getAttribute("data-value") === "Yes") {
@@ -1677,7 +1707,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           btn.classList.remove("active");
         }
       });
-      
+
       // Show container and active buttons
       toggleMalfunctionsContainer("Yes");
       const activeVals = malfunctionsList.split(", ").map(v => v.trim()).filter(Boolean);
@@ -1699,7 +1729,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     clearTimeout(toastTimeout);
     toastMsg.textContent = message;
     toastBanner.classList.add("active");
-    
+
     toastTimeout = setTimeout(() => {
       toastBanner.classList.remove("active");
     }, 3000);
@@ -1713,7 +1743,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       const records = await window.dbManager.getAllRecords();
-      
+
       if (records.length === 0) {
         historyListContainer.innerHTML = `<div class="history-empty">No scout records have been logged in the local offline database yet.</div>`;
         return;
@@ -1724,7 +1754,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const syncBadgeClass = rec.synced === 1 ? "synced" : "pending";
         const syncBadgeText = rec.synced === 1 ? "Synced" : "Pending";
         const allianceDotClass = rec.alliance && rec.alliance.toLowerCase() === "red" ? "red" : "blue";
-        
+
         listHtml += `
           <div class="history-item" data-id="${rec.id}">
             <div class="history-item-meta">
@@ -1779,7 +1809,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const records = await window.dbManager.getAllRecords();
       const targetRecord = records.find(r => r.id === recordId);
-      
+
       if (!targetRecord) {
         alert("Scout record not found in IndexedDB!");
         return;
@@ -1819,9 +1849,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       alert("Browser is currently Offline! Auto-sync is blocked until Internet is restored.");
       return;
     }
-    
+
     showToast("Triggering forced ingestion sync...");
-    
+
     if (window.syncManager) {
       // Refresh qual schedule when forcing a sync
       await window.syncManager.fetchAndCacheQualSchedule();
@@ -1833,7 +1863,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ----------------============================================================
   // PART 15: REAL-TIME SCOUTING DISCREPANCY AUDITING & FEEDBACK LOOP
   // ------------------------------------------------============================
-  
+
   const auditListContainer = document.getElementById("audit-list-container");
   const btnFetchFlagged = document.getElementById("btn-fetch-flagged");
   let activeFlaggedRecords = []; // Global memory array for active audits
@@ -1858,7 +1888,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const endpoint = window.syncManager.getSyncEndpoint();
       const response = await fetch(`${endpoint}?action=getFlaggedRecords`);
-      
+
       if (!response.ok) {
         throw new Error("Failed to connect to Google Sheet API. Status: " + response.status);
       }
@@ -1875,7 +1905,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const allianceDotClass = rec.alliance && rec.alliance.toLowerCase() === "red" ? "red" : "blue";
         const deltaLabelClass = rec.delta > 0 ? "text-error" : "text-success";
         const deltaSymbol = rec.delta > 0 ? "+" : "";
-        
+
         listHtml += `
           <div class="history-item" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1977,7 +2007,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const field = container.getAttribute("data-field");
       const val = targetRecord.data[field] || "";
       const activeVals = val.split(", ").map(v => v.trim()).filter(Boolean);
-      
+
       container.querySelectorAll(".toggle-checkbox-btn").forEach(btn => {
         const btnVal = btn.getAttribute("data-value");
         if (activeVals.includes(btnVal)) {
@@ -2057,7 +2087,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === "success") {
         showToast("Audit flag successfully bypassed!");
         alert("Bypass Success: Record has been force-approved and returned to analytics.");
