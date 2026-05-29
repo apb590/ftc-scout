@@ -98,7 +98,7 @@
               <input type="text" id="username" class="input-control" placeholder="e.g. alden_h" required pattern="^[a-zA-Z]+_[a-zA-Z]$" title="Please enter in first_lastinitial format (e.g., alden_h)">
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="responsive-form-grid">
               <div class="input-group" style="margin-bottom: 0;">
                 <label class="input-label" for="matchno">Match Number *</label>
                 <input type="number" id="matchno" class="input-control" placeholder="e.g. 12" min="1" required>
@@ -216,8 +216,8 @@
             <div class="input-group">
               <label class="input-label">Auto Shooting Range (Tap to Toggle Range)</label>
               <div class="range-toggle-container">
-                <button type="button" class="range-toggle-btn" id="range-btn-close" data-field="auto_range" data-value="Close to Goal Target (< 3ft)">Close to Goal Target (< 3ft)</button>
-                <button type="button" class="range-toggle-btn" id="range-btn-far" data-field="auto_range" data-value="Far from Goal Target (> 10ft)">Far from Goal Target (> 10ft)</button>
+                <button type="button" class="range-toggle-btn" id="range-btn-close" data-field="auto_range" data-value="Close (< 3ft)">Close (< 3ft)</button>
+                <button type="button" class="range-toggle-btn" id="range-btn-far" data-field="auto_range" data-value="Far (> 10ft)">Far (> 10ft)</button>
               </div>
               <input type="hidden" id="auto_range" value="">
             </div>
@@ -297,7 +297,7 @@
               <!-- Close Shots Card -->
               <div class="teleop-compact-card" style="padding: 8px; margin-bottom: 4px;">
                 <div class="input-group" style="margin-bottom: 0;">
-                  <label class="input-label" style="font-size: 0.85rem; font-weight: 700; margin-bottom: 6px;">Close Shots (Close to Goal Target &lt; 3ft)</label>
+                  <label class="input-label" style="font-size: 0.95rem; font-weight: 700; margin-bottom: 6px;">Close Shots (< 3ft)</label>
                   
                   <div class="event-log-container event-bulk">
                     <button type="button" class="event-log-btn btn-classified-bulk" data-action="close_made" data-add="1" style="padding: 10px 4px; font-size: 0.85rem;">+1 Class</button>
@@ -331,7 +331,7 @@
               <!-- Far Shots Card -->
               <div class="teleop-compact-card" style="padding: 8px; margin-bottom: 4px;">
                 <div class="input-group" style="margin-bottom: 0;">
-                  <label class="input-label" style="font-size: 0.85rem; font-weight: 700; margin-bottom: 6px;">Far Shots (Far from Goal Target &gt; 10ft)</label>
+                  <label class="input-label" style="font-size: 0.95rem; font-weight: 700; margin-bottom: 6px;">Far Shots (> 10ft)</label>
                   
                   <div class="event-log-container event-bulk">
                     <button type="button" class="event-log-btn btn-classified-bulk" data-action="far_made" data-add="1" style="padding: 10px 4px; font-size: 0.85rem;">+1 Class</button>
@@ -396,7 +396,7 @@
           <div class="premium-card">
             <h2 class="card-title">Endgame & Review</h2>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="responsive-form-grid">
 
 
               <div class="input-group">
@@ -536,7 +536,7 @@
     <section id="history-section" class="form-section">
       <div class="premium-card">
         <h2 class="card-title">Database Utilities</h2>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="responsive-form-grid" style="margin-bottom: 0; gap: 12px;">
           <button type="button" class="btn-primary" id="btn-export-csv">Export to CSV</button>
           <button type="button" class="btn-primary" id="btn-export-json">Export to JSON</button>
         </div>
