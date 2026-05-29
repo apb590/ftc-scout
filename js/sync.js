@@ -297,7 +297,12 @@ class ScoutingSyncManager {
   async fetchEventConfig() {
     if (!navigator.onLine) {
       const cached = localStorage.getItem("event_config");
-      return cached ? JSON.parse(cached) : [];
+      try {
+        return cached ? JSON.parse(cached) : [];
+      } catch (e) {
+        console.warn("[Sync] Failed to parse cached event_config:", e);
+        return [];
+      }
     }
     try {
       const endpoint = this.getSyncEndpoint();
@@ -313,7 +318,12 @@ class ScoutingSyncManager {
       console.warn("[Sync] Failed to fetch event config:", err);
     }
     const cached = localStorage.getItem("event_config");
-    return cached ? JSON.parse(cached) : [];
+    try {
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      console.warn("[Sync] Failed to parse cached event_config (fallback):", e);
+      return [];
+    }
   }
 
   /**
@@ -323,7 +333,12 @@ class ScoutingSyncManager {
     if (!eventCode) return null;
     if (!navigator.onLine) {
       const cached = localStorage.getItem(`preevent_data_${eventCode}`);
-      return cached ? JSON.parse(cached) : null;
+      try {
+        return cached ? JSON.parse(cached) : null;
+      } catch (e) {
+        console.warn(`[Sync] Failed to parse cached preevent_data for ${eventCode}:`, e);
+        return null;
+      }
     }
     try {
       const endpoint = this.getSyncEndpoint();
@@ -339,7 +354,12 @@ class ScoutingSyncManager {
       console.warn(`[Sync] Failed to fetch pre-event data for ${eventCode}:`, err);
     }
     const cached = localStorage.getItem(`preevent_data_${eventCode}`);
-    return cached ? JSON.parse(cached) : null;
+    try {
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      console.warn(`[Sync] Failed to parse cached preevent_data for ${eventCode} (fallback):`, e);
+      return null;
+    }
   }
 }
 

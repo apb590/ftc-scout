@@ -3,20 +3,32 @@
  * Handles routing, component triggers, form actions, and draft persistence.
  */
 document.addEventListener("DOMContentLoaded", async () => {
-  // Initialize Database and Sync Manager
+  // Initialize Database
   try {
     await window.dbManager.init();
     console.log("[App] Database initialized in app scope");
-    
-    // Fetch and cache the qualification schedule on startup if online
-    if (window.syncManager && navigator.onLine) {
+  } catch (err) {
+    console.error("[App] Failed to load database layer:", err);
+  }
+
+  // Fetch and cache the qualification schedule on startup if online
+  if (window.syncManager && navigator.onLine) {
+    try {
       window.syncManager.fetchAndCacheQualSchedule();
+    } catch (e) {
+      console.warn("[App] Failed to trigger qualification schedule fetch:", e);
     }
-    
-    // Initialize active events dropdown and pre-event setup
+  }
+  
+  // Initialize active events dropdown and pre-event setup
+  try {
     await initEventDropdown();
-    
-    // Restore and save Scouter Name to localStorage to survive page refreshes
+  } catch (e) {
+    console.error("[App] Failed to initialize active events dropdown:", e);
+  }
+  
+  // Restore and save Scouter Name to localStorage to survive page refreshes
+  try {
     const usernameInput = document.getElementById("username");
     if (usernameInput) {
       usernameInput.value = localStorage.getItem("sticky_scouter_name") || "";
@@ -24,8 +36,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       usernameInput.addEventListener("input", saveName);
       usernameInput.addEventListener("change", saveName);
     }
-  } catch (err) {
-    console.error("[App] Failed to load database layer:", err);
+  } catch (e) {
+    console.error("[App] Failed to restore sticky scouter name:", e);
   }
 
   // 1. PWA Service Worker Registration
@@ -313,12 +325,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const lastEvent = activeOption ? activeOption.getAttribute("data-lastevent") : "";
     
     if (preeventLinksContainer) {
+      const targetUrl = lastEvent
+        ? `https://ftc-events.firstinspires.org/2025/${lastEvent.toUpperCase()}/qualifications?team=${selectedTeam}`
+        : `https://ftc-events.firstinspires.org/2025/team/${selectedTeam}`;
+      
+      const badgeLabel = lastEvent
+        ? `📺 Watch ${lastEvent.toUpperCase()} Videos`
+        : `🌐 FIRST Matches (${selectedTeam})`;
+
       preeventLinksContainer.innerHTML = `
-        <a href="https://ftc-events.firstinspires.org/2025/team/${selectedTeam}" target="_blank" class="preevent-badge-ftc" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(99,102,241,0.15); color:var(--accent-color); font-weight:600; font-size:0.85rem; border:1px solid rgba(99,102,241,0.3); transition:all 0.2s;">
-          🌐 FTC Profile (${selectedTeam})
+        <a href="${targetUrl}" target="_blank" class="preevent-badge-video" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(99,102,241,0.15); color:var(--accent-color); font-weight:600; font-size:0.85rem; border:1px solid rgba(99,102,241,0.3); transition:all 0.2s;">
+          ${badgeLabel}
         </a>
-        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent('ftc team ' + selectedTeam + ' ' + lastEvent + (matchVal ? ' Q' + matchVal : ''))}" target="_blank" class="preevent-badge-video" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
-          📺 Watch ${lastEvent ? lastEvent.toUpperCase() : "Last Played"} Video
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent('ftc team ' + selectedTeam + ' ' + lastEvent + (matchVal ? ' Q' + matchVal : ''))}" target="_blank" class="preevent-badge-youtube" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
+          🔍 YouTube Search
         </a>
       `;
     }
@@ -340,30 +360,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (preeventQRCanvas && window.QRious) {
       let eventUrl = "";
       if (window.syncManager) {
-        const events = JSON.parse(localStorage.getItem("event_config") || "[]");
-        const ev = events.find(e => e.code === eventSelect.value);
-        if (ev && ev.url) {
-          eventUrl = ev.url;
+        let events = [];
+        try {
+          events = JSON.parse(localStorage.getItem("event_config") || "[]");
+        } catch (e) {
+          console.warn("[App] Failed to parse event_config for QR code URL:", e);
+        }
+        if (Array.isArray(events)) {
+          const ev = events.find(e => e.code === eventSelect.value);
+          if (ev && ev.url && !ev.url.includes("script.google.com")) {
+            eventUrl = ev.url;
+          }
         }
       }
       if (!eventUrl) {
         eventUrl = window.location.origin + window.location.pathname;
       }
       
-      const preeventUrl = new URL(eventUrl);
-      preeventUrl.searchParams.set("mode", "preevent");
-      preeventUrl.searchParams.set("team", selectedTeam);
-      preeventUrl.searchParams.set("event", eventSelect.value);
-      preeventUrl.searchParams.set("scouted_event", lastEvent);
-      if (matchVal) preeventUrl.searchParams.set("match", matchVal);
-      if (allianceVal) preeventUrl.searchParams.set("alliance", allianceVal);
-      
-      new window.QRious({
-        element: preeventQRCanvas,
-        value: preeventUrl.toString(),
-        size: 160,
-        level: "M"
-      });
+      try {
+        const preeventUrl = new URL(eventUrl);
+        preeventUrl.searchParams.set("mode", "preevent");
+        preeventUrl.searchParams.set("team", selectedTeam);
+        preeventUrl.searchParams.set("event", eventSelect.value);
+        preeventUrl.searchParams.set("scouted_event", lastEvent);
+        if (matchVal) preeventUrl.searchParams.set("match", matchVal);
+        if (allianceVal) preeventUrl.searchParams.set("alliance", allianceVal);
+        
+        new window.QRious({
+          element: preeventQRCanvas,
+          value: preeventUrl.toString(),
+          size: 160,
+          level: "M"
+        });
+      } catch (err) {
+        console.error("[App] Failed to generate pre-event QR code:", err);
+      }
     }
   }
 
@@ -472,7 +503,12 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         } else {
           const savedSchedule = localStorage.getItem("qual_schedule");
-          const schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
+          let schedule = null;
+          try {
+            schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
+          } catch (e) {
+            console.warn("[App] Failed to parse qual_schedule from cache:", e);
+          }
           if (matchVal && schedule && schedule[matchVal]) {
             updateAllianceColorForTeam(teamVal, schedule[matchVal]);
           }
@@ -989,7 +1025,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       
       const savedSchedule = localStorage.getItem("qual_schedule");
-      const schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
+      let schedule = null;
+      try {
+        schedule = savedSchedule ? JSON.parse(savedSchedule) : null;
+      } catch (e) {
+        console.warn("[App] Failed to parse qual_schedule:", e);
+      }
       
       // Find if the match is in the schedule
       if (matchVal && schedule && schedule[matchVal]) {
