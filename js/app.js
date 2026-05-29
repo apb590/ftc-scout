@@ -75,6 +75,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const preeventScoutedStatus = document.getElementById("preevent-scouted-status");
   const preeventQRCanvas = document.getElementById("preevent-qr-canvas");
   const standardSetupInputs = document.getElementById("standard-setup-inputs");
+  const scoutingModeGroup = document.getElementById("scouting-mode-group");
+  const modeBtnLive = document.getElementById("mode-btn-live");
+  const modeBtnResearch = document.getElementById("mode-btn-research");
 
   let canvasInstance = null;
   // Coordinates coordinates
@@ -152,11 +155,45 @@ document.addEventListener("DOMContentLoaded", async () => {
       eventSelect.value = restoredEvent;
     }
     
+    function updateDefaultModeForSelectedEvent() {
+      const selectedEvent = eventSelect ? eventSelect.value : "";
+      if (!selectedEvent) return;
+      
+      if (window.preeventUrlParams || window.location.search.includes("mode=preevent")) {
+        if (modeBtnResearch) modeBtnResearch.classList.add("active");
+        if (modeBtnLive) modeBtnLive.classList.remove("active");
+        return;
+      }
+      
+      if (selectedEvent === activeLiveEventCode) {
+        if (modeBtnLive) modeBtnLive.classList.add("active");
+        if (modeBtnResearch) modeBtnResearch.classList.remove("active");
+      } else {
+        if (modeBtnResearch) modeBtnResearch.classList.add("active");
+        if (modeBtnLive) modeBtnLive.classList.remove("active");
+      }
+    }
+
+    if (modeBtnLive && modeBtnResearch) {
+      modeBtnLive.addEventListener("click", () => {
+        modeBtnLive.classList.add("active");
+        modeBtnResearch.classList.remove("active");
+        handleEventSelectionChange();
+      });
+      modeBtnResearch.addEventListener("click", () => {
+        modeBtnResearch.classList.add("active");
+        modeBtnLive.classList.remove("active");
+        handleEventSelectionChange();
+      });
+    }
+
     eventSelect.addEventListener("change", () => {
       localStorage.setItem("sticky_event", eventSelect.value);
+      updateDefaultModeForSelectedEvent();
       handleEventSelectionChange();
     });
     
+    updateDefaultModeForSelectedEvent();
     await handleEventSelectionChange();
   }
 
@@ -173,10 +210,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (standardAllianceGroup) standardAllianceGroup.style.display = "block";
       if (standardMatchInput) standardMatchInput.required = true;
       if (standardTeamInput) standardTeamInput.required = true;
+      if (scoutingModeGroup) scoutingModeGroup.style.display = "none";
       return;
     }
     
-    if (selectedEvent === activeLiveEventCode) {
+    if (scoutingModeGroup) scoutingModeGroup.style.display = "block";
+    
+    let activeMode = "live";
+    if (modeBtnResearch && modeBtnResearch.classList.contains("active")) {
+      activeMode = "research";
+    }
+    
+    if (activeMode === "live") {
       if (preeventContainer) preeventContainer.style.display = "none";
       if (standardSetupInputs) standardSetupInputs.style.display = "flex";
       if (standardAllianceGroup) standardAllianceGroup.style.display = "block";

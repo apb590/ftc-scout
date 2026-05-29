@@ -1,4 +1,4 @@
-const CACHE_NAME = "decode-scout-v23";
+const CACHE_NAME = "decode-scout-v24";
 const ASSETS = [
   "./",
   "./index.html",
