@@ -1,4 +1,4 @@
-const CACHE_NAME = "decode-scout-v24";
+const CACHE_NAME = "decode-scout-v25";
 const ASSETS = [
   "./",
   "./index.html",
@@ -72,4 +72,11 @@ self.addEventListener("fetch", (event) => {
         });
     })
   );
+});
+
+// Support programmatic update skips
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.action === "skipWaiting") {
+    self.skipWaiting();
+  }
 });

@@ -3,13 +3,10 @@
  * Handles routing, component triggers, form actions, and draft persistence.
  */
 document.addEventListener("DOMContentLoaded", async () => {
-  // Initialize Database
-  try {
-    await window.dbManager.init();
-    console.log("[App] Database initialized in app scope");
-  } catch (err) {
-    console.error("[App] Failed to load database layer:", err);
-  }
+  // Initialize Database in background (non-blocking)
+  window.dbManager.init().catch(err => {
+    console.warn("[App] Failed to initialize database in background:", err);
+  });
 
   // Fetch and cache the qualification schedule on startup if online
   if (window.syncManager && navigator.onLine) {
@@ -40,17 +37,49 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("[App] Failed to restore sticky scouter name:", e);
   }
 
-  // 1. PWA Service Worker Registration
+  // 1. PWA Service Worker Registration & Silent Auto-Update
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
         .register("./sw.js")
         .then((reg) => {
           console.log("[Service Worker] Registered successfully with scope:", reg.scope);
+          
+          // Force immediate update check on every load
+          reg.update();
+          
+          // If an update is already waiting, trigger activation
+          if (reg.waiting) {
+            console.log("[Service Worker] New service worker waiting. Activating...");
+            reg.waiting.postMessage({ action: "skipWaiting" });
+          }
+
+          // Listen for new service worker installations
+          reg.addEventListener("updatefound", () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener("statechange", () => {
+                if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                  console.log("[Service Worker] New update available. Installing silently...");
+                  newWorker.postMessage({ action: "skipWaiting" });
+                }
+              });
+            }
+          });
         })
         .catch((err) => {
           console.warn("[Service Worker] Registration failed:", err);
         });
+
+      // Handle controller change (reload the page once to apply the update)
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!refreshing) {
+          refreshing = true;
+          console.log("[Service Worker] Controller changed. Reloading page...");
+          window.location.reload();
+        }
+      });
     });
   }
 
@@ -103,44 +132,41 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function initEventDropdown() {
     if (!eventSelect) return;
     
+    // 1. Populate immediately from local cache if available (instant load)
+    let cachedEvents = [];
+    try {
+      const cached = localStorage.getItem("event_config");
+      cachedEvents = cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      console.warn("[App] Failed to parse cached event_config on early load:", e);
+    }
+    
+    if (Array.isArray(cachedEvents) && cachedEvents.length > 0) {
+      populateDropdownWithOptions(cachedEvents);
+    }
+    
+    // 2. Fetch targetEvent and latest events list from network in background (non-blocking)
     if (window.syncManager) {
       const endpoint = window.syncManager.getSyncEndpoint();
-      if (navigator.onLine && endpoint) {
-        try {
-          const configRes = await fetch(`${endpoint}?action=getAdminConfig`);
-          if (configRes.ok) {
-            const config = await configRes.json();
-            activeLiveEventCode = config.targetEvent || "";
-            localStorage.setItem("active_live_event_code", activeLiveEventCode);
-          }
-        } catch (e) {
-          console.warn("[App] Failed to fetch active live event:", e);
-        }
-      }
-      if (!activeLiveEventCode) {
-        activeLiveEventCode = localStorage.getItem("active_live_event_code") || "";
-      }
-      
-      const events = await window.syncManager.fetchEventConfig();
-      
-      eventSelect.innerHTML = "";
-      if (events && events.length > 0) {
-        const placeholderOpt = document.createElement("option");
-        placeholderOpt.value = "";
-        placeholderOpt.textContent = "-- Select Event --";
-        eventSelect.appendChild(placeholderOpt);
+      if (endpoint && navigator.onLine) {
+        fetch(`${endpoint}?action=getAdminConfig`)
+          .then(res => res.ok ? res.json() : null)
+          .then(config => {
+            if (config && config.targetEvent) {
+              activeLiveEventCode = config.targetEvent;
+              localStorage.setItem("active_live_event_code", activeLiveEventCode);
+              updateDefaultModeForSelectedEvent();
+            }
+          })
+          .catch(e => console.warn("[App] Failed to fetch active live event in background:", e));
         
-        events.forEach(e => {
-          const opt = document.createElement("option");
-          opt.value = e.code;
-          opt.textContent = `${e.name} (${e.code.toUpperCase()})`;
-          eventSelect.appendChild(opt);
-        });
-      } else {
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = "-- No Events Available --";
-        eventSelect.appendChild(opt);
+        window.syncManager.fetchEventConfig()
+          .then(events => {
+            if (events && events.length > 0) {
+              populateDropdownWithOptions(events);
+            }
+          })
+          .catch(e => console.warn("[App] Failed to fetch event config in background:", e));
       }
     }
     
@@ -165,7 +191,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
       
-      if (selectedEvent === activeLiveEventCode) {
+      // Smart date-based future event check
+      let isFutureEvent = false;
+      try {
+        const events = JSON.parse(localStorage.getItem("event_config") || "[]");
+        const ev = events.find(e => e.code === selectedEvent);
+        if (ev && ev.startDate) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const startDate = new Date(ev.startDate);
+          if (startDate > today) {
+            isFutureEvent = true;
+          }
+        }
+      } catch (e) {
+        console.warn("[App] Failed to check event date:", e);
+      }
+      
+      if (selectedEvent === activeLiveEventCode && !isFutureEvent) {
         if (modeBtnLive) modeBtnLive.classList.add("active");
         if (modeBtnResearch) modeBtnResearch.classList.remove("active");
       } else {
@@ -197,12 +240,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     await handleEventSelectionChange();
   }
 
+  function populateDropdownWithOptions(events) {
+    if (!eventSelect) return;
+    const currentValue = eventSelect.value;
+    eventSelect.innerHTML = "";
+    
+    const placeholderOpt = document.createElement("option");
+    placeholderOpt.value = "";
+    placeholderOpt.textContent = "-- Select Event --";
+    eventSelect.appendChild(placeholderOpt);
+    
+    events.forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.code;
+      opt.textContent = `${e.name} (${e.code.toUpperCase()})`;
+      eventSelect.appendChild(opt);
+    });
+    
+    if (currentValue && events.some(e => e.code === currentValue)) {
+      eventSelect.value = currentValue;
+    }
+  }
+
   // Pre-event Container Toggle Control
   async function handleEventSelectionChange() {
     const selectedEvent = eventSelect.value;
     const standardMatchInput = document.getElementById("matchno");
     const standardTeamInput = document.getElementById("teamno");
     const standardAllianceGroup = document.getElementById("alliance-container") ? document.getElementById("alliance-container").closest(".input-group") : null;
+    
+    if (selectedEvent && window.syncManager) {
+      // Trigger non-blocking background schedule caching for the newly selected event
+      window.syncManager.fetchAndCacheQualSchedule(selectedEvent)
+        .catch(e => console.warn("[App] Failed to pre-cache schedule for:", selectedEvent));
+    }
     
     if (!selectedEvent) {
       if (preeventContainer) preeventContainer.style.display = "none";
@@ -1068,8 +1139,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (testDataBanner) {
         testDataBanner.style.display = "none";
       }
+      const eventSelect = document.getElementById("event-select");
+      const selectedEvent = eventSelect ? eventSelect.value : "";
       
-      const savedSchedule = localStorage.getItem("qual_schedule");
+      let savedSchedule = null;
+      if (selectedEvent) {
+        savedSchedule = localStorage.getItem(`qual_schedule_${selectedEvent}`);
+      }
+      if (!savedSchedule) {
+        savedSchedule = localStorage.getItem("qual_schedule");
+      }
+      
       let schedule = null;
       try {
         schedule = savedSchedule ? JSON.parse(savedSchedule) : null;

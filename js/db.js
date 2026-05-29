@@ -7,6 +7,7 @@ class ScoutingDatabase {
     this.dbName = "FTCDecodeScoutingDB";
     this.dbVersion = 1;
     this.db = null;
+    this.initPromise = null;
   }
 
   /**
@@ -14,8 +15,9 @@ class ScoutingDatabase {
    */
   async init() {
     if (this.db) return this.db;
+    if (this.initPromise) return this.initPromise;
 
-    return new Promise((resolve, reject) => {
+    this.initPromise = new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion);
 
       request.onupgradeneeded = (event) => {
@@ -43,9 +45,12 @@ class ScoutingDatabase {
 
       request.onerror = (event) => {
         console.error("[Database] Error opening IndexedDB:", event.target.error);
+        this.initPromise = null; // Let future retries try again
         reject(event.target.error);
       };
     });
+
+    return this.initPromise;
   }
 
   /**

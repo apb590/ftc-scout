@@ -277,16 +277,32 @@ class ScoutingSyncManager {
   /**
    * Fetches and caches the qualification schedule locally in localStorage
    */
-  async fetchAndCacheQualSchedule() {
+  async fetchAndCacheQualSchedule(eventCode = null) {
     if (!navigator.onLine) return;
     try {
       const endpoint = this.getSyncEndpoint();
       if (!endpoint) return;
-      const response = await fetch(`${endpoint}?action=getQualSchedule`);
+      
+      let url = `${endpoint}?action=getQualSchedule`;
+      if (eventCode) {
+        url += `&event=${encodeURIComponent(eventCode)}`;
+      }
+      
+      const response = await fetch(url);
       if (response.ok) {
         const schedule = await response.json();
-        localStorage.setItem("qual_schedule", JSON.stringify(schedule));
-        console.log("[Sync] Qual schedule successfully cached locally!");
+        
+        // Zero-caching rule: if the schedule is empty {}, do NOT save it to localStorage
+        const hasKeys = schedule && Object.keys(schedule).length > 0;
+        if (!hasKeys) {
+          console.log("[Sync] Qual schedule is empty, skipping local caching to allow continuous background updates.");
+          return;
+        }
+        
+        const cacheKey = eventCode ? `qual_schedule_${eventCode}` : "qual_schedule";
+        localStorage.setItem(cacheKey, JSON.stringify(schedule));
+        console.log(`[Sync] Qual schedule for ${eventCode || 'active event'} successfully cached locally!`);
+        
         // Update the form dropdown if the user has already typed a match number
         if (window.updateTeamSelector) {
           window.updateTeamSelector();
