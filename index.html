@@ -344,7 +344,7 @@
               <label class="input-label">Auton Penalties / Infractions (Select all that apply)</label>
               <div class="toggle-checkbox-container" data-field="auto_penal">
                 <button type="button" class="toggle-checkbox-btn" data-value="Opponent interference">Opponent interference</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Boundary infringement">Boundary infringement</button>
+                <button type="button" class="toggle-checkbox-btn" data-value="Holding 4 balls">Holding 4 balls</button>
               </div>
               <input type="hidden" id="auto_penal" value="">
             </div>
@@ -362,14 +362,7 @@
           <!-- SECTION 4: TELEOPERATED PERIOD -->
           <div class="premium-card" style="padding: 12px; margin-bottom: 12px;">
             <h2 class="card-title" style="margin-bottom: 10px;">Teleop Phase</h2>
-            <div class="input-group" style="margin-bottom: 16px;">
-              <label class="input-label">First Step Setup Strategy (Select one)</label>
-              <div class="range-toggle-container">
-                <button type="button" class="range-toggle-btn active" data-field="telesetup" data-value="Unsure / not a distinct first step">Unsure / not a distinct first step</button>
-                <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Aligned near gate">Aligned near gate</button>
-                <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Spike">Spike</button>
-                <button type="button" class="range-toggle-btn" data-field="telesetup" data-value="Blocking opponent">Blocking opponent</button>
-              </div>
+            <div class="input-group" style="display: none;">
               <input type="hidden" id="telesetup" value="Unsure / not a distinct first step">
             </div>
 
@@ -520,15 +513,7 @@
                 <input type="hidden" id="defense" value="No intentional contact">
               </div>
 
-              <div class="input-group">
-                <label class="input-label">Time to Complete Park (Select one)</label>
-                <div class="range-toggle-container">
-                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="Did not attempt">Did not attempt</button>
-                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="1-5 seconds">1-5 seconds</button>
-                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="6-10 seconds">6-10 seconds</button>
-                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value="11-15 seconds">11-15 seconds</button>
-                  <button type="button" class="range-toggle-btn" data-field="timetopark" data-value=">15 seconds">&gt;15 seconds</button>
-                </div>
+              <div class="input-group" style="display: none;">
                 <input type="hidden" id="timetopark" value="">
               </div>
 
@@ -582,12 +567,10 @@
             </div>
 
             <div class="input-group">
-              <label class="input-label">Teleop Phase Fouls/Penalties</label>
+              <label class="input-label">Teleop Phase Fouls/Penalties (Select all that apply)</label>
               <div class="toggle-checkbox-container" data-field="tele_penal">
-                <button type="button" class="toggle-checkbox-btn" data-value="Major Pinning">Major Pinning</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Minor Contact">Minor Contact</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Substage Encroachment">Substage Encroachment</button>
-                <button type="button" class="toggle-checkbox-btn" data-value="Illegal Element Control">Illegal Element Control</button>
+                <button type="button" class="toggle-checkbox-btn" data-value="Endgame base contact">Endgame base contact</button>
+                <button type="button" class="toggle-checkbox-btn" data-value="Controlling more than 3 balls">Controlling more than 3 balls</button>
               </div>
               <input type="hidden" id="tele_penal" value="">
             </div>
