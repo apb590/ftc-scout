@@ -1003,7 +1003,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (isPre) {
       // upcoming_event = the Active Event (target event this scouting prepares for)
-      data.upcoming_event = activeLiveEventCode;
+      data.upcoming_event = selectedEvent || activeLiveEventCode;
 
       // scouted_event = "Last Event Played" from the PreEventRosterCache tab
       let scoutedEventVal = "";
