@@ -1,4 +1,4 @@
-const CACHE_NAME = "decode-scout-v38";
+const CACHE_NAME = "decode-scout-v39";
 const ASSETS = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const ASSETS = [
   "./js/canvas.js",
   "./js/sync.js",
   "https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js",
+  "https://cdn.jsdelivr.net/npm/jsoncrush@1.1.8/JSONCrush.min.js",
   "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap",
   "https://raw.githubusercontent.com/acmerobotics/MeepMeep/cd0a88ff91a5fd7fa740d0d95dfea60ba14f656c/src/main/resources/background/season-2025-decode/field-2025-official.png",
   "https://raw.githubusercontent.com/acmerobotics/MeepMeep/cd0a88ff91a5fd7fa740d0d95dfea60ba14f656c/src/main/resources/background/season-2025-decode/field-2025-juice-black.png",

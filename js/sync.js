@@ -72,14 +72,27 @@ class ScoutingSyncManager {
     }
 
     try {
-      // Create a compact CSV string representation of the 35 elements
-      const dataPayload = this.convertToCompactCSVString(record);
+      // Step 1: Strip keys — positional value serialization using schema order
+      const sequentialValues = this.schemaKeys.map(key => record[key] ?? "");
+
+      // Step 2: Pipe-delimited flat string (much smaller than JSON or CSV)
+      const flatString = sequentialValues.join("|");
+
+      // Step 3: Compress with JSONCrush if available, otherwise fall back to raw
+      let dataPayload;
+      if (window.JSONCrush && typeof window.JSONCrush.crush === "function") {
+        dataPayload = JSONCrush.crush(flatString);
+        console.log(`[Sync] JSONCrush compressed: ${flatString.length} → ${dataPayload.length} chars (${Math.round((1 - dataPayload.length / flatString.length) * 100)}% reduction)`);
+      } else {
+        dataPayload = flatString;
+        console.warn("[Sync] JSONCrush not available, using uncompressed pipe-delimited payload.");
+      }
 
       new QRious({
         element: canvasElement,
         value: dataPayload,
         size: 260,
-        level: "M" // Medium error correction balance
+        level: "L" // Low error correction = larger data blocks, easier scan in dark stands
       });
 
       console.log(`[Sync] Offline QR Code generated successfully (${dataPayload.length} chars)`);
@@ -396,6 +409,35 @@ class ScoutingSyncManager {
     });
     
     return resolvedData;
+  }
+
+  /**
+   * Emergency fallback: exports only unsynced records to a downloadable JSON file.
+   * Persists outside browser eviction limits (iOS memory pressure, etc.)
+   */
+  async backupUnsyncedToFile() {
+    try {
+      const unsyncedRecords = await window.dbManager.getUnsyncedRecords();
+      if (unsyncedRecords.length === 0) {
+        alert("No unsynced records to backup! All records have been successfully synced.");
+        return;
+      }
+
+      const jsonContent = JSON.stringify(unsyncedRecords, null, 2);
+      const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
+      const link = document.createElement("a");
+
+      const filename = `FTC_Emergency_Backup_${unsyncedRecords.length}records_${Date.now()}.json`;
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      console.log(`[Sync] Emergency backup triggered: ${unsyncedRecords.length} unsynced records exported.`);
+    } catch (err) {
+      console.error("[Sync] Emergency backup failed:", err);
+      alert("Emergency backup failed: " + err.message);
+    }
   }
 }
 

@@ -604,6 +604,7 @@
           <button type="button" class="btn-primary" id="btn-export-json">Export to JSON</button>
         </div>
         <button type="button" class="btn-secondary" id="btn-trigger-sync">Force Auto-Sync Ingestion Queue</button>
+        <button type="button" class="btn-secondary" id="btn-emergency-backup" style="margin-top: 8px; border-color: var(--color-warning); color: var(--color-warning); background: rgba(245, 158, 11, 0.05);">⚠️ Emergency Backup (Unsynced Only)</button>
       </div>
 
       <div class="premium-card">
@@ -684,6 +685,7 @@
        ========================================================================== -->
   <!-- Standalone QR Code Generator Library (Cached offline by SW) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsoncrush@1.1.8/JSONCrush.min.js"></script>
   
   <!-- Custom Libraries -->
   <script src="js/db.js"></script>
