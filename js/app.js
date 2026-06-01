@@ -555,14 +555,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   if (preeventAllianceRed && preeventAllianceBlue) {
     preeventAllianceRed.addEventListener("click", () => {
-      preeventAllianceRed.classList.add("active");
-      preeventAllianceBlue.classList.remove("active");
       setAllianceStyle("Red");
       handlePreEventSelectionUpdates();
     });
     preeventAllianceBlue.addEventListener("click", () => {
-      preeventAllianceBlue.classList.add("active");
-      preeventAllianceRed.classList.remove("active");
       setAllianceStyle("Blue");
       handlePreEventSelectionUpdates();
     });
@@ -617,11 +613,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.body.classList.add("alliance-red");
       redBtn.classList.add("active");
       blueBtn.classList.remove("active");
+      if (preeventAllianceRed) preeventAllianceRed.classList.add("active");
+      if (preeventAllianceBlue) preeventAllianceBlue.classList.remove("active");
     } else {
       document.body.classList.remove("alliance-red");
       document.body.classList.add("alliance-blue");
       blueBtn.classList.add("active");
       redBtn.classList.remove("active");
+      if (preeventAllianceBlue) preeventAllianceBlue.classList.add("active");
+      if (preeventAllianceRed) preeventAllianceRed.classList.remove("active");
     }
     allianceInput.value = alliance;
     triggerAutosave();
