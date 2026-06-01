@@ -1002,26 +1002,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     data.is_preevent = isPre;
 
     if (isPre) {
-      if (selectedEvent && selectedEvent !== activeLiveEventCode) {
-        // Case 2: User selected a past event directly in the main dropdown
-        data.upcoming_event = activeLiveEventCode;
-        data.scouted_event = selectedEvent;
-      } else {
-        // Case 1: User selected the championship event, and is using the contenders dashboard
-        data.upcoming_event = selectedEvent;
-        
-        let scoutedEventVal = "";
-        const teamSel = document.getElementById("preevent-team-select");
-        if (teamSel && teamSel.selectedOptions && teamSel.selectedOptions[0]) {
-          const lastEventRaw = teamSel.selectedOptions[0].getAttribute("data-lastevent") || "";
-          if (lastEventRaw.includes("|")) {
-            scoutedEventVal = lastEventRaw.split("|")[0].trim();
-          } else {
-            scoutedEventVal = lastEventRaw.trim();
-          }
+      // upcoming_event = the Active Event (target event this scouting prepares for)
+      data.upcoming_event = activeLiveEventCode;
+
+      // scouted_event = "Last Event Played" from the PreEventRosterCache tab
+      let scoutedEventVal = "";
+      const teamSel = document.getElementById("preevent-team-select");
+      if (teamSel && teamSel.selectedOptions && teamSel.selectedOptions[0]) {
+        const lastEventRaw = teamSel.selectedOptions[0].getAttribute("data-lastevent") || "";
+        if (lastEventRaw.includes("|")) {
+          scoutedEventVal = lastEventRaw.split("|")[0].trim();
+        } else {
+          scoutedEventVal = lastEventRaw.trim();
         }
-        data.scouted_event = scoutedEventVal;
       }
+      data.scouted_event = scoutedEventVal;
     } else {
       data.upcoming_event = "";
       data.scouted_event = "";
