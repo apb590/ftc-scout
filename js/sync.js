@@ -278,41 +278,64 @@ class ScoutingSyncManager {
   }
 
   /**
-   * Fetches and caches the qualification schedule locally in localStorage
+   * Helper implementing Stale-While-Revalidate (SWR) fetching pattern.
+   * Instantly fires the callback with cached data, then fetches fresh data in the background.
    */
-  async fetchAndCacheQualSchedule(eventCode = null) {
-    try {
-      const endpoint = this.getSyncEndpoint();
-      if (!endpoint) return;
-      
-      let url = `${endpoint}?action=getQualSchedule`;
-      if (eventCode) {
-        url += `&event=${encodeURIComponent(eventCode)}`;
+  async executeSWR(cacheKey, dataUrl, updateCallback) {
+    // 1. Look in localStorage for the cacheKey
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const cachedData = JSON.parse(cached);
+        if (updateCallback) {
+          updateCallback(cachedData, true); // true means "stale" cache
+        }
+      } catch (e) {
+        console.warn(`[Sync] Failed to parse cached SWR data for ${cacheKey}:`, e);
       }
-      
-      const response = await fetch(url);
+    }
+
+    // 2. Perform background fetch to dataUrl
+    try {
+      const response = await fetch(dataUrl);
       if (response.ok) {
-        const schedule = await response.json();
+        const freshData = await response.json();
+        const freshStr = JSON.stringify(freshData);
         
-        // Zero-caching rule: if the schedule is empty {}, do NOT save it to localStorage
-        const hasKeys = schedule && Object.keys(schedule).length > 0;
-        if (!hasKeys) {
-          console.log("[Sync] Qual schedule is empty, skipping local caching to allow continuous background updates.");
+        // Zero-caching rule for schedule if empty
+        if (cacheKey.includes("qual_schedule") && (!freshData || Object.keys(freshData).length === 0)) {
+          console.log("[Sync] SWR Qual schedule is empty, skipping caching.");
           return;
         }
-        
-        const cacheKey = eventCode ? `qual_schedule_${eventCode}` : "qual_schedule";
-        localStorage.setItem(cacheKey, JSON.stringify(schedule));
-        console.log(`[Sync] Qual schedule for ${eventCode || 'active event'} successfully cached locally!`);
-        
-        // Update the form dropdown if the user has already typed a match number
-        if (window.updateTeamSelector) {
-          window.updateTeamSelector();
+
+        if (freshStr !== cached) {
+          localStorage.setItem(cacheKey, freshStr);
+        }
+        if (updateCallback) {
+          updateCallback(freshData, false); // false means "verified fresh"
         }
       }
     } catch (err) {
-      console.warn("[Sync] Failed to fetch qual schedule:", err);
+      console.warn(`[Sync] Background SWR fetch failed for ${dataUrl}:`, err);
     }
+  }
+
+  /**
+   * Fetches and caches the qualification schedule locally in localStorage using SWR
+   */
+  async fetchAndCacheQualSchedule(eventCode = null, updateCallback = null) {
+    const cacheKey = eventCode ? `qual_schedule_${eventCode}` : "qual_schedule";
+    const dataUrl = "./data/schedule.json";
+    
+    await this.executeSWR(cacheKey, dataUrl, (data, isStale) => {
+      // Update form dropdown if the user has already typed a match number
+      if (window.updateTeamSelector) {
+        window.updateTeamSelector();
+      }
+      if (updateCallback) {
+        updateCallback(data, isStale);
+      }
+    });
   }
 
   /**
@@ -344,32 +367,29 @@ class ScoutingSyncManager {
   }
 
   /**
-   * Fetches sorted top team list and completed matches for pre-event scouting
+   * Fetches sorted top team list and completed matches for pre-event scouting using SWR
    */
-  async fetchPreEventTeamList(eventCode) {
+  async fetchPreEventTeamList(eventCode, updateCallback = null) {
     if (!eventCode) return null;
-    try {
-      const endpoint = this.getSyncEndpoint();
-      if (endpoint) {
-        const response = await fetch(`${endpoint}?action=getPreEventData&event=${encodeURIComponent(eventCode)}`);
-        if (response.ok) {
-          const data = await response.json();
-          localStorage.setItem(`preevent_data_${eventCode}`, JSON.stringify(data));
-          console.log(`[Sync] Pre-event data for ${eventCode} successfully cached!`);
-          return data;
-        }
-      }
-    } catch (err) {
-      console.warn(`[Sync] Failed to fetch pre-event data for ${eventCode}, falling back to cache:`, err);
+    const cacheKey = `preevent_data_${eventCode}`;
+    const dataUrl = "./data/preevent.json";
+    
+    let resolvedData = null;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        resolvedData = JSON.parse(cached);
+      } catch (e) {}
     }
     
-    const cached = localStorage.getItem(`preevent_data_${eventCode}`);
-    try {
-      return cached ? JSON.parse(cached) : null;
-    } catch (e) {
-      console.warn(`[Sync] Failed to parse cached preevent_data for ${eventCode} (fallback):`, e);
-      return null;
-    }
+    await this.executeSWR(cacheKey, dataUrl, (data, isStale) => {
+      resolvedData = data;
+      if (updateCallback) {
+        updateCallback(data, isStale);
+      }
+    });
+    
+    return resolvedData;
   }
 }
 

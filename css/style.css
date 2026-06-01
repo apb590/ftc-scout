@@ -934,6 +934,17 @@ textarea.input-control {
   border-color: #f59e0b;
 }
 
+.event-log-btn.btn-missed {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.event-log-btn.btn-missed:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: #ef4444;
+}
+
 .event-log-btn.btn-undo {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.2);
@@ -980,6 +991,14 @@ textarea.input-control {
   .teleop-flex-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+
+@media (min-width: 600px) {
+  .teleop-flex-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
   }
 }

@@ -21,10 +21,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.warn("[App] Failed to initialize database in background:", err);
   });
 
-  // Fetch and cache the qualification schedule on startup
+  // Fetch and cache the qualification schedule on startup using SWR
   if (window.syncManager) {
     try {
-      window.syncManager.fetchAndCacheQualSchedule();
+      window.syncManager.fetchAndCacheQualSchedule(null, (schedule, isStale) => {
+        const statusEl = document.getElementById("sync-status") || document.getElementById("sync-status-indicator");
+        if (statusEl) {
+          statusEl.textContent = isStale ? "Serving Offline Cache..." : "Verified Live Up-To-Date";
+        }
+      });
     } catch (e) {
       console.warn("[App] Failed to trigger qualification schedule fetch:", e);
     }
@@ -125,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let activePinX = null;
   let activePinY = null;
 
-  let activeLiveEventCode = "";
+  let activeLiveEventCode = localStorage.getItem("active_live_event_code") || "";
   let preEventData = null;
 
   // Parse URL pre-population parameters
@@ -287,9 +292,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const standardAllianceGroup = document.getElementById("alliance-container") ? document.getElementById("alliance-container").closest(".input-group") : null;
 
     if (selectedEvent && window.syncManager) {
-      // Trigger non-blocking background schedule caching for the newly selected event
-      window.syncManager.fetchAndCacheQualSchedule(selectedEvent)
-        .catch(e => console.warn("[App] Failed to pre-cache schedule for:", selectedEvent));
+      // Trigger background schedule caching for the newly selected event using SWR
+      window.syncManager.fetchAndCacheQualSchedule(selectedEvent, (schedule, isStale) => {
+        const statusEl = document.getElementById("sync-status") || document.getElementById("sync-status-indicator");
+        if (statusEl) {
+          statusEl.textContent = isStale ? "Serving Offline Cache..." : "Verified Live Up-To-Date";
+        }
+      }).catch(e => console.warn("[App] Failed to pre-cache schedule for:", selectedEvent));
     }
 
     if (!selectedEvent) {
@@ -334,21 +343,29 @@ document.addEventListener("DOMContentLoaded", async () => {
         preeventTeamSelect.innerHTML = "<option value=''>-- Loading Teams --</option>";
       }
 
-      preEventData = await window.syncManager.fetchPreEventTeamList(selectedEvent);
-
-      if (preEventData) {
-        populatePreEventTeamSelector(preEventData);
-      } else {
-        if (preeventTeamSelect) {
-          preeventTeamSelect.innerHTML = "<option value=''>-- Error Loading Teams --</option>";
+      await window.syncManager.fetchPreEventTeamList(selectedEvent, (data, isStale) => {
+        preEventData = data;
+        const statusEl = document.getElementById("sync-status") || document.getElementById("sync-status-indicator");
+        if (statusEl) {
+          statusEl.textContent = isStale ? "Serving Offline Cache..." : "Verified Live Up-To-Date";
         }
-      }
+        if (data) {
+          populatePreEventTeamSelector(data);
+        } else {
+          if (preeventTeamSelect) {
+            preeventTeamSelect.innerHTML = "<option value=''>-- Error Loading Teams --</option>";
+          }
+        }
+      });
     }
   }
 
   // Pre-event Team Dropdown Prioritization Sorting
   function populatePreEventTeamSelector(data) {
     if (!preeventTeamSelect) return;
+
+    // Gracefully preserve current selection if any
+    const currentSelectedValue = preeventTeamSelect.value;
 
     const topTeams = data.topTeams || [];
     const completedMatches = data.completedMatches || [];
@@ -394,6 +411,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       preeventTeamSelect.appendChild(opt);
     });
+
+    // Gracefully restore previous selection if it is still valid
+    if (currentSelectedValue && sortedTeams.some(t => String(t.num) === String(currentSelectedValue))) {
+      preeventTeamSelect.value = currentSelectedValue;
+      handlePreEventSelectionUpdates();
+    }
 
     if (window.preeventUrlParams) {
       const params = window.preeventUrlParams;
@@ -938,19 +961,39 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Append pre-event schema fields
     const selectedEvent = document.getElementById("event-select") ? document.getElementById("event-select").value : "";
-    const isPre = (selectedEvent && selectedEvent !== activeLiveEventCode) ? 1 : 0;
+    const modeBtnResearch = document.getElementById("mode-btn-research");
+    const isResearchMode = modeBtnResearch && modeBtnResearch.classList.contains("active");
+    
+    // It's a pre-event record if research mode is active OR if the selected event is not the active live event
+    const isPre = (isResearchMode || (selectedEvent && selectedEvent !== activeLiveEventCode)) ? 1 : 0;
 
     data.is_preevent = isPre;
-    data.upcoming_event = isPre ? selectedEvent : "";
 
-    let scoutedEventVal = "";
     if (isPre) {
-      const teamSel = document.getElementById("preevent-team-select");
-      if (teamSel && teamSel.selectedOptions && teamSel.selectedOptions[0]) {
-        scoutedEventVal = teamSel.selectedOptions[0].getAttribute("data-lastevent") || "";
+      if (selectedEvent && selectedEvent !== activeLiveEventCode) {
+        // Case 2: User selected a past event directly in the main dropdown
+        data.upcoming_event = activeLiveEventCode;
+        data.scouted_event = selectedEvent;
+      } else {
+        // Case 1: User selected the championship event, and is using the contenders dashboard
+        data.upcoming_event = selectedEvent;
+        
+        let scoutedEventVal = "";
+        const teamSel = document.getElementById("preevent-team-select");
+        if (teamSel && teamSel.selectedOptions && teamSel.selectedOptions[0]) {
+          const lastEventRaw = teamSel.selectedOptions[0].getAttribute("data-lastevent") || "";
+          if (lastEventRaw.includes("|")) {
+            scoutedEventVal = lastEventRaw.split("|")[0].trim();
+          } else {
+            scoutedEventVal = lastEventRaw.trim();
+          }
+        }
+        data.scouted_event = scoutedEventVal;
       }
+    } else {
+      data.upcoming_event = "";
+      data.scouted_event = "";
     }
-    data.scouted_event = scoutedEventVal;
 
     return data;
   }

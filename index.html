@@ -402,6 +402,23 @@
                 </div>
               </div>
 
+            <!-- Gate Openings Card -->
+            <div class="teleop-compact-card" style="padding: 8px; margin-bottom: 4px;">
+              <div class="input-group" style="margin-bottom: 0;">
+                <label class="input-label" style="font-size: 0.95rem; font-weight: 700; margin-bottom: 6px;">Gate Openings</label>
+                
+                <div class="event-log-container" style="margin-top: 6px; grid-template-columns: 2fr 1fr;">
+                  <button type="button" class="event-log-btn btn-classified" id="btn-gate-open" style="padding: 10px 4px; font-size: 0.85rem;">+ Gate Opened</button>
+                  <button type="button" class="event-log-btn btn-undo" id="btn-gate-undo" style="padding: 10px 4px; font-size: 0.85rem;">Undo</button>
+                </div>
+                
+                <div class="totals-display" style="padding: 6px; font-size: 0.78rem; margin-top: 6px;">
+                  <span>Count: <strong id="val-gate_opn">0</strong></span>
+                </div>
+                <input type="number" id="gate_opn" value="0" style="display: none;">
+              </div>
+            </div>
+
               <!-- Far Shots Card -->
               <div class="teleop-compact-card" style="padding: 8px; margin-bottom: 4px;">
                 <div class="input-group" style="margin-bottom: 0;">
@@ -437,24 +454,6 @@
               </div>
             </div>
 
-            <!-- Gate Openings Card -->
-            <div class="teleop-compact-card" style="padding: 12px; margin-top: 12px;">
-              <div class="input-group" style="margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-                <div>
-                  <label class="input-label" style="font-size: 0.9rem; font-weight: 700; margin-bottom: 2px;">Substage Gate Openings</label>
-                  <span style="font-size: 0.75rem; color: var(--text-secondary);">Count number of times gate was lifted</span>
-                </div>
-                
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <button type="button" class="event-log-btn btn-classified" id="btn-gate-open" style="padding: 10px 14px; font-size: 0.85rem; font-weight: 600;">+ Gate Opened</button>
-                  <button type="button" class="event-log-btn btn-undo" id="btn-gate-undo" style="padding: 10px 12px; font-size: 0.8rem;">Undo</button>
-                  <div class="totals-display" style="padding: 8px 12px; margin-top: 0; font-size: 0.85rem; font-weight: 700;">
-                    <span>Count: <strong id="val-gate_opn">0</strong></span>
-                  </div>
-                </div>
-                <input type="number" id="gate_opn" value="0" style="display: none;">
-              </div>
-            </div>
           </div>
 
           <div class="step-navigation" style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-top: 12px;">
