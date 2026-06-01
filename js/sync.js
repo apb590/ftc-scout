@@ -325,7 +325,10 @@ class ScoutingSyncManager {
    */
   async fetchAndCacheQualSchedule(eventCode = null, updateCallback = null) {
     const cacheKey = eventCode ? `qual_schedule_${eventCode}` : "qual_schedule";
-    const dataUrl = "./data/schedule.json";
+    
+    // Dynamically hit the Google Apps Script webhook for the specific schedule
+    const endpoint = this.getSyncEndpoint();
+    const dataUrl = eventCode ? `${endpoint}?action=getQualSchedule&event=${eventCode}` : `${endpoint}?action=getQualSchedule`;
     
     await this.executeSWR(cacheKey, dataUrl, (data, isStale) => {
       // Update form dropdown if the user has already typed a match number
@@ -372,7 +375,10 @@ class ScoutingSyncManager {
   async fetchPreEventTeamList(eventCode, updateCallback = null) {
     if (!eventCode) return null;
     const cacheKey = `preevent_data_${eventCode}`;
-    const dataUrl = "./data/preevent.json";
+    
+    // Dynamically hit the Google Apps Script webhook for the specific event
+    const endpoint = this.getSyncEndpoint();
+    const dataUrl = `${endpoint}?action=getPreEventData&event=${eventCode}`;
     
     let resolvedData = null;
     const cached = localStorage.getItem(cacheKey);
