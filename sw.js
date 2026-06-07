@@ -1,4 +1,4 @@
-const CACHE_NAME = "decode-scout-v45";
+const CACHE_NAME = "decode-scout-v46";
 const ASSETS = [
   "./",
   "./index.html",
@@ -46,6 +46,11 @@ self.addEventListener("activate", (event) => {
 
 // Intercept requests and serve from cache if offline
 self.addEventListener("fetch", (event) => {
+  // Bypass service worker interception for Google Apps Script API calls to prevent CORS/redirect issues
+  if (event.request.url.includes("script.google.com") || event.request.url.includes("script.googleusercontent.com")) {
+    return;
+  }
+
   // Only cache GET requests
   if (event.request.method !== "GET") return;
 
