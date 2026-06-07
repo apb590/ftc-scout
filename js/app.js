@@ -346,9 +346,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             const events = await window.syncManager.fetchEventConfig();
             if (events && events.length > 0) {
               populateDropdownWithOptions(events);
+            } else if (eventSelect.options.length <= 1) {
+              eventSelect.innerHTML = '<option value="">-- Select Event --</option>';
             }
           } catch (e) {
             console.warn("[App] Failed to fetch event config:", e);
+            if (eventSelect.options.length <= 1) {
+              eventSelect.innerHTML = '<option value="">-- Select Event --</option>';
+            }
           }
         }
       }
