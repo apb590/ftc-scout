@@ -207,7 +207,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("[Service Worker] New service worker waiting. Prompting user...");
             showUpdateBanner(() => {
               reg.waiting.postMessage({ action: "skipWaiting" });
-              window.location.reload();
             });
           }
 
@@ -220,7 +219,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                   console.log("[Service Worker] New update available. Prompting user...");
                   showUpdateBanner(() => {
                     newWorker.postMessage({ action: "skipWaiting" });
-                    window.location.reload();
                   });
                 }
               });
@@ -312,11 +310,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Admin config (target event) — fire-and-forget, non-critical for dropdown
         fetch(`${endpoint}?action=getAdminConfig`)
           .then(res => res.ok ? res.json() : null)
-          .then(config => {
+          .then(async config => {
             if (config && config.targetEvent) {
               activeLiveEventCode = config.targetEvent;
               localStorage.setItem("active_live_event_code", activeLiveEventCode);
               updateDefaultModeForSelectedEvent();
+
+              // Auto-select target event if no event is currently selected
+              if (!eventSelect.value && activeLiveEventCode) {
+                eventSelect.value = activeLiveEventCode;
+                localStorage.setItem("sticky_event", activeLiveEventCode);
+                await handleEventSelectionChange();
+              }
             }
           })
           .catch(e => console.warn("[App] Failed to fetch active live event in background:", e));
@@ -343,6 +348,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (restoredEvent) {
       eventSelect.value = restoredEvent;
+      await handleEventSelectionChange();
+    } else {
+      const cachedActiveCode = localStorage.getItem("active_live_event_code");
+      if (cachedActiveCode) {
+        eventSelect.value = cachedActiveCode;
+        await handleEventSelectionChange();
+      }
     }
 
     function updateDefaultModeForSelectedEvent() {
