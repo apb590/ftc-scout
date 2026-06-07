@@ -11,7 +11,7 @@ class FeedbackManager {
     this.audioEnabled = true;
     this.hapticsEnabled = true;
     this.audioCtx = null;
-    
+
     // Load persisted settings
     this.loadSettings();
   }
@@ -20,7 +20,7 @@ class FeedbackManager {
     try {
       const audioSetting = localStorage.getItem("scout_enable_audio");
       const hapticSetting = localStorage.getItem("scout_enable_haptics");
-      
+
       this.audioEnabled = audioSetting !== "false"; // default to true
       this.hapticsEnabled = hapticSetting !== "false"; // default to true
     } catch (e) {
@@ -54,7 +54,7 @@ class FeedbackManager {
 
   playTick(frequency, duration) {
     if (!this.audioEnabled) return;
-    
+
     // Autoplay policy: initialize / resume context on click/tap
     this.initAudio();
     if (!this.audioCtx) return;
@@ -66,17 +66,17 @@ class FeedbackManager {
     try {
       const osc = this.audioCtx.createOscillator();
       const gainNode = this.audioCtx.createGain();
-      
+
       osc.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
-      
+
       osc.type = "sine";
       osc.frequency.setValueAtTime(frequency, this.audioCtx.currentTime);
-      
+
       // Crisp decay envelope to prevent popping/clicking sounds
       gainNode.gain.setValueAtTime(0.15, this.audioCtx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + duration);
-      
+
       osc.start(this.audioCtx.currentTime);
       osc.stop(this.audioCtx.currentTime + duration);
     } catch (e) {
@@ -384,8 +384,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (isStartup) {
       // Delay network configuration fetching on startup to avoid congestion and allow Service Worker initialization to stabilize
-      setTimeout(performNetworkFetch, 1500);
-      
+      setTimeout(performNetworkFetch, 3000);
+
       // Still trigger local selection change handler instantly so offline cache displays immediately on boot
       await handleEventSelectionChange();
     } else {
@@ -1207,7 +1207,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const selectedEvent = document.getElementById("event-select") ? document.getElementById("event-select").value : "";
     const modeBtnResearch = document.getElementById("mode-btn-research");
     const isResearchMode = modeBtnResearch && modeBtnResearch.classList.contains("active");
-    
+
     // It's a pre-event record if research mode is active OR if the selected event is not the active live event
     const isPre = (isResearchMode || (selectedEvent && selectedEvent !== activeLiveEventCode)) ? 1 : 0;
 
@@ -1688,7 +1688,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         console.log(`[Undo Action] Reverted action from stack:`, action, `Stack Size: ${actionHistoryStack.length}`);
-        
+
         if (window.feedbackManager) {
           window.feedbackManager.trigger("undo");
         }
