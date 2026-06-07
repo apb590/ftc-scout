@@ -652,7 +652,21 @@
         <input type="url" id="setting-sync-endpoint" class="input-control" placeholder="https://endpoint-link-here...">
       </div>
 
-      <button type="button" class="btn-primary" id="save-settings-btn" style="background: hsl(260, 60%, 60%); box-shadow: 0 0 15px rgba(139, 92, 246, 0.4)">Save & Apply Changes</button>
+      <div class="input-group" style="margin-top: 16px;">
+        <label class="input-label">User Interface Feedback</label>
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 10px; color: var(--text-primary); cursor: pointer; font-size: 0.95rem; user-select: none;">
+            <input type="checkbox" id="setting-enable-audio" style="width: 18px; height: 18px; accent-color: hsl(260, 60%, 60%); cursor: pointer;" checked>
+            Enable Audio Ticks (Web Audio API)
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; color: var(--text-primary); cursor: pointer; font-size: 0.95rem; user-select: none;">
+            <input type="checkbox" id="setting-enable-haptics" style="width: 18px; height: 18px; accent-color: hsl(260, 60%, 60%); cursor: pointer;" checked>
+            Enable Haptic Vibration (on supported devices)
+          </label>
+        </div>
+      </div>
+
+      <button type="button" class="btn-primary" id="save-settings-btn" style="background: hsl(260, 60%, 60%); box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); margin-top: 8px;">Save & Apply Changes</button>
     </div>
   </div>
 

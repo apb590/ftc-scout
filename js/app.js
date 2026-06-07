@@ -2,6 +2,116 @@
  * app.js - Main Application Controller
  * Handles routing, component triggers, form actions, and draft persistence.
  */
+
+/**
+ * FeedbackManager - Handles synthesized Web Audio ticks and haptic vibrations.
+ */
+class FeedbackManager {
+  constructor() {
+    this.audioEnabled = true;
+    this.hapticsEnabled = true;
+    this.audioCtx = null;
+    
+    // Load persisted settings
+    this.loadSettings();
+  }
+
+  loadSettings() {
+    try {
+      const audioSetting = localStorage.getItem("scout_enable_audio");
+      const hapticSetting = localStorage.getItem("scout_enable_haptics");
+      
+      this.audioEnabled = audioSetting !== "false"; // default to true
+      this.hapticsEnabled = hapticSetting !== "false"; // default to true
+    } catch (e) {
+      console.warn("[Feedback] Failed to load localStorage settings:", e);
+    }
+  }
+
+  saveSettings(enableAudio, enableHaptics) {
+    this.audioEnabled = !!enableAudio;
+    this.hapticsEnabled = !!enableHaptics;
+    try {
+      localStorage.setItem("scout_enable_audio", String(this.audioEnabled));
+      localStorage.setItem("scout_enable_haptics", String(this.hapticsEnabled));
+    } catch (e) {
+      console.warn("[Feedback] Failed to save localStorage settings:", e);
+    }
+  }
+
+  initAudio() {
+    if (this.audioCtx) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        this.audioCtx = new AudioContextClass();
+        console.log("[Feedback] AudioContext initialized successfully.");
+      }
+    } catch (e) {
+      console.error("[Feedback] Web Audio API initialization failed:", e);
+    }
+  }
+
+  playTick(frequency, duration) {
+    if (!this.audioEnabled) return;
+    
+    // Autoplay policy: initialize / resume context on click/tap
+    this.initAudio();
+    if (!this.audioCtx) return;
+
+    if (this.audioCtx.state === "suspended") {
+      this.audioCtx.resume();
+    }
+
+    try {
+      const osc = this.audioCtx.createOscillator();
+      const gainNode = this.audioCtx.createGain();
+      
+      osc.connect(gainNode);
+      gainNode.connect(this.audioCtx.destination);
+      
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(frequency, this.audioCtx.currentTime);
+      
+      // Crisp decay envelope to prevent popping/clicking sounds
+      gainNode.gain.setValueAtTime(0.15, this.audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + duration);
+      
+      osc.start(this.audioCtx.currentTime);
+      osc.stop(this.audioCtx.currentTime + duration);
+    } catch (e) {
+      console.warn("[Feedback] Audio tick generation error:", e);
+    }
+  }
+
+  vibrate(pattern) {
+    if (!this.hapticsEnabled) return;
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      try {
+        navigator.vibrate(pattern);
+      } catch (e) {
+        console.warn("[Feedback] Vibration failed:", e);
+      }
+    }
+  }
+
+  trigger(type) {
+    if (type === "click") {
+      this.playTick(880, 0.05); // High pitch crisp beep
+      this.vibrate(35);         // Short vibration
+    } else if (type === "undo") {
+      this.playTick(440, 0.12); // Medium low pitch beep
+      this.vibrate(75);         // Medium vibration
+    } else if (type === "warning") {
+      this.playTick(220, 0.20); // Buzzing low pitch beep
+      this.vibrate([50, 40, 50]); // Double short pulse
+    }
+  }
+}
+
+// Instantiate globally
+window.feedbackManager = new FeedbackManager();
+
 document.addEventListener("DOMContentLoaded", async () => {
   // Auto-prepopulate and heal the Web App URL if missing or invalid on startup
   try {
@@ -719,7 +829,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           current--;
           hiddenInput.value = current;
           displayVal.textContent = current;
+          if (window.feedbackManager) {
+            window.feedbackManager.trigger("undo");
+          }
           triggerAutosave();
+        } else {
+          if (window.feedbackManager) {
+            window.feedbackManager.trigger("warning");
+          }
         }
       }
     });
@@ -736,6 +853,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         current++;
         hiddenInput.value = current;
         displayVal.textContent = current;
+        if (window.feedbackManager) {
+          window.feedbackManager.trigger("click");
+        }
         triggerAutosave();
       }
     });
@@ -747,6 +867,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const saveSettingsBtn = document.getElementById("save-settings-btn");
   const refreshEventsBtn = document.getElementById("refresh-events-btn");
   const settingSyncUrlInput = document.getElementById("setting-sync-endpoint");
+  const settingAudioCheckbox = document.getElementById("setting-enable-audio");
+  const settingHapticsCheckbox = document.getElementById("setting-enable-haptics");
+
+  // Set initial feedback UI checkbox states based on persisted settings
+  if (settingAudioCheckbox && window.feedbackManager) {
+    settingAudioCheckbox.checked = window.feedbackManager.audioEnabled;
+  }
+  if (settingHapticsCheckbox && window.feedbackManager) {
+    settingHapticsCheckbox.checked = window.feedbackManager.hapticsEnabled;
+  }
 
   async function saveSettingsAndReloadEvents({ closeModal = true, toastMessage = "Settings Saved! Loading Events..." } = {}) {
     let newEndpoint = settingSyncUrlInput ? settingSyncUrlInput.value.trim() : "";
@@ -768,6 +898,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (settingSyncUrlInput) settingSyncUrlInput.value = newEndpoint;
     }
 
+    // Save feedback manager settings
+    if (window.feedbackManager) {
+      const audioVal = settingAudioCheckbox ? settingAudioCheckbox.checked : true;
+      const hapticsVal = settingHapticsCheckbox ? settingHapticsCheckbox.checked : true;
+      window.feedbackManager.saveSettings(audioVal, hapticsVal);
+    }
+
     if (closeModal && settingsModal) {
       settingsModal.classList.remove("active");
     }
@@ -786,6 +923,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   openSettingsBtn.addEventListener("click", () => {
     // Populate current local settings values
     settingSyncUrlInput.value = window.syncManager.getSyncEndpoint();
+    if (settingAudioCheckbox && window.feedbackManager) {
+      settingAudioCheckbox.checked = window.feedbackManager.audioEnabled;
+    }
+    if (settingHapticsCheckbox && window.feedbackManager) {
+      settingHapticsCheckbox.checked = window.feedbackManager.hapticsEnabled;
+    }
     settingsModal.classList.add("active");
   });
 
@@ -821,12 +964,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       const made = parseInt(preloadMadeInput.value) || 0;
       const miss = parseInt(preloadMissInput.value) || 0;
       if (made + miss >= 3) {
+        if (window.feedbackManager) {
+          window.feedbackManager.trigger("warning");
+        }
         showToast("Maximum of 3 combined preloads reached!");
         return;
       }
       preloadMadeInput.value = made + 1;
       document.getElementById("val-preload_made").textContent = made + 1;
       actionHistoryStack.push({ phase: "preload", field: "preload_made", increment: 1 });
+      if (window.feedbackManager) {
+        window.feedbackManager.trigger("click");
+      }
       triggerAutosave();
     });
 
@@ -834,12 +983,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       const made = parseInt(preloadMadeInput.value) || 0;
       const miss = parseInt(preloadMissInput.value) || 0;
       if (made + miss >= 3) {
+        if (window.feedbackManager) {
+          window.feedbackManager.trigger("warning");
+        }
         showToast("Maximum of 3 combined preloads reached!");
         return;
       }
       preloadMissInput.value = miss + 1;
       document.getElementById("val-preload_miss").textContent = miss + 1;
       actionHistoryStack.push({ phase: "preload", field: "preload_miss", increment: 1 });
+      if (window.feedbackManager) {
+        window.feedbackManager.trigger("click");
+      }
       triggerAutosave();
     });
   }
@@ -856,6 +1011,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const display = document.getElementById("val-gate_opn");
       if (display) display.textContent = current + 1;
       actionHistoryStack.push({ phase: "teleop", field: "gate_opn", increment: 1 });
+      if (window.feedbackManager) {
+        window.feedbackManager.trigger("click");
+      }
       triggerAutosave();
     });
   }
@@ -873,7 +1031,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (matchIdx !== -1) {
           actionHistoryStack.splice(matchIdx, 1);
         }
+        if (window.feedbackManager) {
+          window.feedbackManager.trigger("undo");
+        }
         triggerAutosave();
+      } else {
+        if (window.feedbackManager) {
+          window.feedbackManager.trigger("warning");
+        }
       }
     });
   }
@@ -1446,6 +1611,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       actionHistoryStack.push({ phase, field, increment });
       console.log(`[Event Log] Added action to stack:`, { phase, field, increment }, `Stack Size: ${actionHistoryStack.length}`);
 
+      if (window.feedbackManager) {
+        window.feedbackManager.trigger("click");
+      }
+
       triggerAutosave();
     }
   }
@@ -1472,10 +1641,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         console.log(`[Undo Action] Reverted action from stack:`, action, `Stack Size: ${actionHistoryStack.length}`);
+        
+        if (window.feedbackManager) {
+          window.feedbackManager.trigger("undo");
+        }
+
         triggerAutosave();
         showToast("Last score action reverted!");
         return;
       }
+    }
+
+    if (window.feedbackManager) {
+      window.feedbackManager.trigger("warning");
     }
     showToast("No scoring history found to undo!");
   }
