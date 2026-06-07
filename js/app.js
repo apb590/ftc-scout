@@ -131,19 +131,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.warn("[App] Failed to initialize database in background:", err);
   });
 
-  // Fetch and cache the qualification schedule on startup using SWR
-  if (window.syncManager) {
-    try {
-      window.syncManager.fetchAndCacheQualSchedule(null, (schedule, isStale) => {
-        const statusEl = document.getElementById("sync-status") || document.getElementById("sync-status-indicator");
-        if (statusEl) {
-          statusEl.textContent = isStale ? "Serving Offline Cache..." : "Verified Live Up-To-Date";
-        }
-      });
-    } catch (e) {
-      console.warn("[App] Failed to trigger qualification schedule fetch:", e);
-    }
-  }
+
 
   // Initialize active events dropdown and pre-event setup
   try {
@@ -289,6 +277,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function initEventDropdown() {
     if (!eventSelect) return;
 
+    // Helper to fetch with timeout
+    async function fetchWithTimeout(url, options = {}) {
+      const { timeout = 8000 } = options;
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
+      }
+    }
+
     // 1. Populate immediately from local cache if available (instant load)
     let cachedEvents = [];
     try {
@@ -302,31 +305,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       populateDropdownWithOptions(cachedEvents);
     }
 
-    // 2. Fetch targetEvent and latest events from network — AWAIT the event config
-    //    so dropdown is populated BEFORE handleEventSelectionChange runs.
+    // 2. Fetch targetEvent and latest events sequentially from network
     if (window.syncManager) {
       const endpoint = window.syncManager.getSyncEndpoint();
       if (endpoint) {
-        // Admin config (target event) — fire-and-forget, non-critical for dropdown
-        fetch(`${endpoint}?action=getAdminConfig`)
-          .then(res => res.ok ? res.json() : null)
-          .then(async config => {
+        // Admin config (target event)
+        try {
+          const res = await fetchWithTimeout(`${endpoint}?action=getAdminConfig`);
+          if (res.ok) {
+            const config = await res.json();
             if (config && config.targetEvent) {
               activeLiveEventCode = config.targetEvent;
               localStorage.setItem("active_live_event_code", activeLiveEventCode);
               updateDefaultModeForSelectedEvent();
-
-              // Auto-select target event if no event is currently selected
-              if (!eventSelect.value && activeLiveEventCode) {
-                eventSelect.value = activeLiveEventCode;
-                localStorage.setItem("sticky_event", activeLiveEventCode);
-                await handleEventSelectionChange();
-              }
             }
-          })
-          .catch(e => console.warn("[App] Failed to fetch active live event in background:", e));
+          }
+        } catch (e) {
+          console.warn("[App] Failed to fetch active live event:", e);
+        }
 
-        // Event config — AWAIT this so dropdown is ready before we proceed
+        // Event config
         try {
           const events = await window.syncManager.fetchEventConfig();
           if (events && events.length > 0) {
@@ -348,14 +346,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (restoredEvent) {
       eventSelect.value = restoredEvent;
-      await handleEventSelectionChange();
+    } else if (activeLiveEventCode) {
+      eventSelect.value = activeLiveEventCode;
+      localStorage.setItem("sticky_event", activeLiveEventCode);
     } else {
       const cachedActiveCode = localStorage.getItem("active_live_event_code");
       if (cachedActiveCode) {
         eventSelect.value = cachedActiveCode;
-        await handleEventSelectionChange();
       }
     }
+
+    // Trigger handleEventSelectionChange EXACTLY ONCE at the end of initialization
+    await handleEventSelectionChange();
 
     function updateDefaultModeForSelectedEvent() {
       const selectedEvent = eventSelect ? eventSelect.value : "";
