@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Initialize active events dropdown and pre-event setup
   try {
-    await initEventDropdown(true);
+    await initEventDropdown(false);
   } catch (e) {
     console.error("[App] Failed to initialize active events dropdown:", e);
   }
@@ -273,7 +273,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
-  async function initEventDropdown(isStartup = false) {
+  async function initEventDropdown(fetchFromNetwork = false) {
     if (!eventSelect) return;
 
     // Helper to fetch with timeout
@@ -382,14 +382,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       await handleEventSelectionChange();
     };
 
-    if (isStartup) {
-      // Delay network configuration fetching on startup to avoid congestion and allow Service Worker initialization to stabilize
-      setTimeout(performNetworkFetch, 3000);
-
-      // Still trigger local selection change handler instantly so offline cache displays immediately on boot
-      await handleEventSelectionChange();
-    } else {
+    if (fetchFromNetwork) {
       await performNetworkFetch();
+    } else {
+      await handleEventSelectionChange();
     }
 
     function updateDefaultModeForSelectedEvent() {
@@ -960,7 +956,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Auto-reload the dropdown instantly
     try {
-      await initEventDropdown();
+      await initEventDropdown(true);
     } catch (e) {
       console.error("[Settings] Failed to reload dropdown:", e);
       showToast("Failed to load events. Check settings.");
