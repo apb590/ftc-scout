@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Initialize active events dropdown and pre-event setup
   try {
-    await initEventDropdown();
+    await initEventDropdown(true);
   } catch (e) {
     console.error("[App] Failed to initialize active events dropdown:", e);
   }
@@ -273,8 +273,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
-  // Active Event Dropdown Populator
-  async function initEventDropdown() {
+  async function initEventDropdown(isStartup = false) {
     if (!eventSelect) return;
 
     // Helper to fetch with timeout
@@ -303,61 +302,90 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (Array.isArray(cachedEvents) && cachedEvents.length > 0) {
       populateDropdownWithOptions(cachedEvents);
+
+      // Instantly restore last selected event on startup so the UI is loaded immediately
+      let restoredEvent = "";
+      if (window.preeventUrlParams && window.preeventUrlParams.event) {
+        restoredEvent = window.preeventUrlParams.event;
+      } else {
+        restoredEvent = localStorage.getItem("sticky_event") || "";
+      }
+
+      if (restoredEvent) {
+        eventSelect.value = restoredEvent;
+      } else {
+        const cachedActiveCode = localStorage.getItem("active_live_event_code");
+        if (cachedActiveCode) {
+          eventSelect.value = cachedActiveCode;
+        }
+      }
     }
 
-    // 2. Fetch targetEvent and latest events sequentially from network
-    if (window.syncManager) {
-      const endpoint = window.syncManager.getSyncEndpoint();
-      if (endpoint) {
-        // Admin config (target event)
-        try {
-          const res = await fetchWithTimeout(`${endpoint}?action=getAdminConfig`, { mode: 'cors', redirect: 'follow' });
-          if (res.ok) {
-            const config = await res.json();
-            if (config && config.targetEvent) {
-              activeLiveEventCode = config.targetEvent;
-              localStorage.setItem("active_live_event_code", activeLiveEventCode);
-              updateDefaultModeForSelectedEvent();
+    // Define the network fetch task
+    const performNetworkFetch = async () => {
+      if (window.syncManager) {
+        const endpoint = window.syncManager.getSyncEndpoint();
+        if (endpoint) {
+          // Admin config (target event)
+          try {
+            const res = await fetchWithTimeout(`${endpoint}?action=getAdminConfig`, { mode: 'cors', redirect: 'follow' });
+            if (res.ok) {
+              const config = await res.json();
+              if (config && config.targetEvent) {
+                activeLiveEventCode = config.targetEvent;
+                localStorage.setItem("active_live_event_code", activeLiveEventCode);
+                updateDefaultModeForSelectedEvent();
+              }
             }
+          } catch (e) {
+            console.warn("[App] Failed to fetch active live event:", e);
           }
-        } catch (e) {
-          console.warn("[App] Failed to fetch active live event:", e);
-        }
 
-        // Event config
-        try {
-          const events = await window.syncManager.fetchEventConfig();
-          if (events && events.length > 0) {
-            populateDropdownWithOptions(events);
+          // Event config
+          try {
+            const events = await window.syncManager.fetchEventConfig();
+            if (events && events.length > 0) {
+              populateDropdownWithOptions(events);
+            }
+          } catch (e) {
+            console.warn("[App] Failed to fetch event config:", e);
           }
-        } catch (e) {
-          console.warn("[App] Failed to fetch event config:", e);
         }
       }
-    }
 
-    // 3. Restore sticky event AFTER dropdown is populated
-    let restoredEvent = "";
-    if (window.preeventUrlParams && window.preeventUrlParams.event) {
-      restoredEvent = window.preeventUrlParams.event;
-    } else {
-      restoredEvent = localStorage.getItem("sticky_event") || "";
-    }
-
-    if (restoredEvent) {
-      eventSelect.value = restoredEvent;
-    } else if (activeLiveEventCode) {
-      eventSelect.value = activeLiveEventCode;
-      localStorage.setItem("sticky_event", activeLiveEventCode);
-    } else {
-      const cachedActiveCode = localStorage.getItem("active_live_event_code");
-      if (cachedActiveCode) {
-        eventSelect.value = cachedActiveCode;
+      // Restore/Apply final sticky event AFTER dropdown is refreshed
+      let restoredEvent = "";
+      if (window.preeventUrlParams && window.preeventUrlParams.event) {
+        restoredEvent = window.preeventUrlParams.event;
+      } else {
+        restoredEvent = localStorage.getItem("sticky_event") || "";
       }
-    }
 
-    // Trigger handleEventSelectionChange EXACTLY ONCE at the end of initialization
-    await handleEventSelectionChange();
+      if (restoredEvent) {
+        eventSelect.value = restoredEvent;
+      } else if (activeLiveEventCode) {
+        eventSelect.value = activeLiveEventCode;
+        localStorage.setItem("sticky_event", activeLiveEventCode);
+      } else {
+        const cachedActiveCode = localStorage.getItem("active_live_event_code");
+        if (cachedActiveCode) {
+          eventSelect.value = cachedActiveCode;
+        }
+      }
+
+      // Trigger handleEventSelectionChange EXACTLY ONCE
+      await handleEventSelectionChange();
+    };
+
+    if (isStartup) {
+      // Delay network configuration fetching on startup to avoid congestion and allow Service Worker initialization to stabilize
+      setTimeout(performNetworkFetch, 1500);
+      
+      // Still trigger local selection change handler instantly so offline cache displays immediately on boot
+      await handleEventSelectionChange();
+    } else {
+      await performNetworkFetch();
+    }
 
     function updateDefaultModeForSelectedEvent() {
       const selectedEvent = eventSelect ? eventSelect.value : "";
