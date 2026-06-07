@@ -310,7 +310,7 @@ class ScoutingSyncManager {
 
     // 2. Perform background fetch to dataUrl
     try {
-      const response = await fetch(dataUrl);
+      const response = await fetch(dataUrl, { mode: 'cors', redirect: 'follow' });
       if (response.ok) {
         const freshData = await response.json();
         const freshStr = JSON.stringify(freshData);
@@ -361,7 +361,7 @@ class ScoutingSyncManager {
     try {
       const endpoint = this.getSyncEndpoint();
       if (endpoint) {
-        const response = await fetch(`${endpoint}?action=getEventConfig`);
+        const response = await fetch(`${endpoint}?action=getEventConfig`, { mode: 'cors', redirect: 'follow' });
         if (response.ok) {
           const events = await response.json();
           localStorage.setItem("event_config", JSON.stringify(events));

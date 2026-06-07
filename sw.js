@@ -1,4 +1,4 @@
-const CACHE_NAME = "decode-scout-v47";
+const CACHE_NAME = "decode-scout-v48";
 const ASSETS = [
   "./",
   "./index.html",
@@ -48,6 +48,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   // Bypass service worker interception for Google Apps Script API calls to prevent CORS/redirect issues
   if (event.request.url.includes("script.google.com") || event.request.url.includes("script.googleusercontent.com")) {
+    event.respondWith(fetch(event.request));
     return;
   }
 

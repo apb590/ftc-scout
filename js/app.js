@@ -311,7 +311,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (endpoint) {
         // Admin config (target event)
         try {
-          const res = await fetchWithTimeout(`${endpoint}?action=getAdminConfig`);
+          const res = await fetchWithTimeout(`${endpoint}?action=getAdminConfig`, { mode: 'cors', redirect: 'follow' });
           if (res.ok) {
             const config = await res.json();
             if (config && config.targetEvent) {
@@ -2159,7 +2159,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       const endpoint = window.syncManager.getSyncEndpoint();
-      const response = await fetch(`${endpoint}?action=getFlaggedRecords`);
+      const response = await fetch(`${endpoint}?action=getFlaggedRecords`, { mode: 'cors', redirect: 'follow' });
 
       if (!response.ok) {
         throw new Error("Failed to connect to Google Sheet API. Status: " + response.status);
