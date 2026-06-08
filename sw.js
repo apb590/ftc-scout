@@ -1,4 +1,4 @@
-const CACHE_NAME = "decode-scout-v53";
+const CACHE_NAME = "decode-scout-v54";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,6 +8,9 @@ const ASSETS = [
   "./js/db.js",
   "./js/canvas.js",
   "./js/sync.js",
+  "./js/sw-client.js",
+  "./js/ui.js",
+  "./js/form-manager.js",
   "https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js",
   "https://cdn.jsdelivr.net/npm/jsoncrush@1.1.8/JSONCrush.min.js",
   "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap",
