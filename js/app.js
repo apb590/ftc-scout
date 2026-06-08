@@ -953,10 +953,4 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  const closeSettingsBtn = document.getElementById("close-settings-btn");
-  if (closeSettingsBtn) {
-    closeSettingsBtn.addEventListener("click", () => {
-      if (settingsModal) settingsModal.classList.remove("active");
-    });
-  }
 });
