@@ -181,6 +181,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const optionExists = Array.from(eventSelect.options).some(opt => opt.value === restoredEvent);
       if (optionExists) {
         eventSelect.value = restoredEvent;
+      } else {
+        const tempOpt = document.createElement("option");
+        tempOpt.value = restoredEvent;
+        tempOpt.textContent = restoredEvent;
+        eventSelect.appendChild(tempOpt);
+        eventSelect.value = restoredEvent;
       }
     }
 
@@ -316,11 +322,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const teams = data ? (data.topTeams || data.teams) : null;
     if (teams && Array.isArray(teams)) {
-      teams.forEach(t => {
+      const completed = (data && data.completedMatches) || [];
+      const scoutedTeamsSet = new Set(completed.map(m => String(m.team)));
+
+      const sortedTeams = [...teams].sort((a, b) => (b.npOPR || 0) - (a.npOPR || 0));
+
+      const unscouted = [];
+      const scouted = [];
+
+      sortedTeams.forEach(t => {
+        if (scoutedTeamsSet.has(String(t.num))) {
+          scouted.push(t);
+        } else {
+          unscouted.push(t);
+        }
+      });
+
+      unscouted.forEach(t => {
         const opt = document.createElement("option");
         opt.value = t.num;
         opt.textContent = `${t.num} - ${t.name} (Rank: ${t.rank}, npOPR: ${t.npOPR.toFixed(1)})`;
         opt.setAttribute("data-lastevent", t.lastEvent || "");
+        preeventTeamSelect.appendChild(opt);
+      });
+
+      scouted.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.num;
+        opt.textContent = `${t.num} - ${t.name} (Rank: ${t.rank}, npOPR: ${t.npOPR.toFixed(1)}) (Scouted)`;
+        opt.setAttribute("data-lastevent", t.lastEvent || "");
+        opt.style.color = "#888";
         preeventTeamSelect.appendChild(opt);
       });
     }
@@ -334,7 +365,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function handlePreEventSelectionUpdates() {
     const selectedTeam = preeventTeamSelect ? preeventTeamSelect.value : "";
     preeventMatchInput.value = "0"; // Pre-event is always match 0
-    preeventAllianceContainer.style.display = selectedTeam ? "flex" : "none";
+    if (preeventAllianceContainer) preeventAllianceContainer.style.display = selectedTeam ? "flex" : "none";
     preeventLinksContainer.style.display = selectedTeam ? "block" : "none";
 
     if (selectedTeam) {
@@ -342,13 +373,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       const teamnoHidden = document.getElementById("teamno");
       if (matchnoHidden) matchnoHidden.value = "0";
       if (teamnoHidden) teamnoHidden.value = selectedTeam;
-    }
-
-    // Restore or update alliance styles on selection
-    if (preeventAllianceRed && preeventAllianceRed.classList.contains("active")) {
-      if (window.scoutingUI) window.scoutingUI.setAllianceStyle("Red");
-    } else if (preeventAllianceBlue && preeventAllianceBlue.classList.contains("active")) {
-      if (window.scoutingUI) window.scoutingUI.setAllianceStyle("Blue");
     }
 
     if (!selectedTeam) {
@@ -386,9 +410,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       preeventLinksContainer.innerHTML = `
         <a href="${targetUrl}" target="_blank" class="preevent-badge-video" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(99,102,241,0.15); color:var(--accent-color); font-weight:600; font-size:0.85rem; border:1px solid rgba(99,102,241,0.3); transition:all 0.2s;">
           ${badgeLabel}
-        </a>
-        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent('ftc team ' + selectedTeam + ' ' + lastEventName)}" target="_blank" class="preevent-badge-youtube" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
-          🔍 YouTube Search
         </a>
       `;
     }
@@ -855,6 +876,42 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (window.formManager) window.formManager.handleUndoAction(phase);
     });
   });
+
+  // Bind Preload Made/Missed counters
+  const btnPreloadMade = document.getElementById("btn-preload-made");
+  const btnPreloadMiss = document.getElementById("btn-preload-miss");
+  if (btnPreloadMade && btnPreloadMiss) {
+    const handlePreloadIncrement = (field) => {
+      const preloadMadeInput = document.getElementById("preload_made");
+      const preloadMissInput = document.getElementById("preload_miss");
+      const madeCount = parseInt(preloadMadeInput ? preloadMadeInput.value : "0") || 0;
+      const missCount = parseInt(preloadMissInput ? preloadMissInput.value : "0") || 0;
+      if (madeCount + missCount >= 3) {
+        if (window.showToast) window.showToast("⚠️ Auton Preloads cannot exceed 3 combined!");
+        if (window.feedbackManager) window.feedbackManager.trigger("warning");
+        return;
+      }
+      if (window.formManager) {
+        window.formManager.logEventAction("preload", field, 1);
+      }
+    };
+    btnPreloadMade.addEventListener("click", () => handlePreloadIncrement("preload_made"));
+    btnPreloadMiss.addEventListener("click", () => handlePreloadIncrement("preload_miss"));
+  }
+
+  // Bind Gate Counter
+  const btnGateOpen = document.getElementById("btn-gate-open");
+  const btnGateUndo = document.getElementById("btn-gate-undo");
+  if (btnGateOpen) {
+    btnGateOpen.addEventListener("click", () => {
+      if (window.formManager) window.formManager.logEventAction("gate", "gate_opn", 1);
+    });
+  }
+  if (btnGateUndo) {
+    btnGateUndo.addEventListener("click", () => {
+      if (window.formManager) window.formManager.handleUndoAction("gate");
+    });
+  }
 
   // Restore active draft on load
   if (window.formManager) {

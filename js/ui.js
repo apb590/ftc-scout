@@ -32,8 +32,6 @@
       this.redBtn = document.getElementById("alliance-btn-red");
       this.blueBtn = document.getElementById("alliance-btn-blue");
       this.allianceInput = document.getElementById("alliance");
-      this.preeventAllianceRed = document.getElementById("preevent-alliance-red");
-      this.preeventAllianceBlue = document.getElementById("preevent-alliance-blue");
 
       this.phaseSteps = document.querySelectorAll(".phase-step");
       this.progressSteps = document.querySelectorAll(".progress-step");
@@ -62,15 +60,11 @@
         document.body.classList.add("alliance-red");
         if (this.redBtn) this.redBtn.classList.add("active");
         if (this.blueBtn) this.blueBtn.classList.remove("active");
-        if (this.preeventAllianceRed) this.preeventAllianceRed.classList.add("active");
-        if (this.preeventAllianceBlue) this.preeventAllianceBlue.classList.remove("active");
       } else {
         document.body.classList.remove("alliance-red");
         document.body.classList.add("alliance-blue");
         if (this.blueBtn) this.blueBtn.classList.add("active");
         if (this.redBtn) this.redBtn.classList.remove("active");
-        if (this.preeventAllianceBlue) this.preeventAllianceBlue.classList.add("active");
-        if (this.preeventAllianceRed) this.preeventAllianceRed.classList.remove("active");
       }
       if (this.allianceInput) this.allianceInput.value = alliance;
       
@@ -482,6 +476,105 @@
         alert("Failed to connect to spreadsheet backend: " + err.message);
       }
     }
+  /**
+   * FeedbackManager - Handles synthesized Web Audio ticks and haptic vibrations.
+   */
+  class FeedbackManager {
+    constructor() {
+      this.audioEnabled = true;
+      this.hapticsEnabled = true;
+      this.audioCtx = null;
+      
+      this.loadSettings();
+    }
+
+    loadSettings() {
+      try {
+        const audioSetting = localStorage.getItem("scout_enable_audio");
+        const hapticSetting = localStorage.getItem("scout_enable_haptics");
+        
+        this.audioEnabled = audioSetting !== "false"; // default to true
+        this.hapticsEnabled = hapticSetting !== "false"; // default to true
+      } catch (e) {
+        console.warn("[Feedback] Failed to load localStorage settings:", e);
+      }
+    }
+
+    saveSettings(enableAudio, enableHaptics) {
+      this.audioEnabled = !!enableAudio;
+      this.hapticsEnabled = !!enableHaptics;
+      try {
+        localStorage.setItem("scout_enable_audio", String(this.audioEnabled));
+        localStorage.setItem("scout_enable_haptics", String(this.hapticsEnabled));
+      } catch (e) {
+        console.warn("[Feedback] Failed to save localStorage settings:", e);
+      }
+    }
+
+    initAudio() {
+      if (this.audioCtx) return;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          this.audioCtx = new AudioContextClass();
+        }
+      } catch (e) {
+        console.warn("[Feedback] Failed to initialize AudioContext:", e);
+      }
+    }
+
+    playTick(frequency, duration) {
+      if (!this.audioEnabled) return;
+      this.initAudio();
+      if (!this.audioCtx) return;
+
+      try {
+        if (this.audioCtx.state === "suspended") {
+          this.audioCtx.resume();
+        }
+
+        const osc = this.audioCtx.createOscillator();
+        const gainNode = this.audioCtx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(frequency, this.audioCtx.currentTime);
+
+        gainNode.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + duration);
+
+        osc.connect(gainNode);
+        gainNode.connect(this.audioCtx.destination);
+
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + duration);
+      } catch (e) {
+        console.warn("[Feedback] Audio tick generation error:", e);
+      }
+    }
+
+    vibrate(pattern) {
+      if (!this.hapticsEnabled) return;
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        try {
+          navigator.vibrate(pattern);
+        } catch (e) {
+          console.warn("[Feedback] Vibration failed:", e);
+        }
+      }
+    }
+
+    trigger(type) {
+      if (type === "click") {
+        this.playTick(880, 0.05); // High pitch crisp beep
+        this.vibrate(35);         // Short vibration
+      } else if (type === "undo") {
+        this.playTick(440, 0.12); // Medium low pitch beep
+        this.vibrate(75);         // Medium vibration
+      } else if (type === "warning") {
+        this.playTick(220, 0.20); // Buzzing low pitch beep
+        this.vibrate([50, 40, 50]); // Double short pulse
+      }
+    }
   }
 
   // Instantiate globally
@@ -489,4 +582,5 @@
   window.showToast = (msg) => window.scoutingUI.showToast(msg);
   window.renderHistoryList = () => window.scoutingUI.renderHistoryList();
   window.renderAuditLogsList = () => window.scoutingUI.renderAuditLogsList();
+  window.feedbackManager = new FeedbackManager();
 })();
