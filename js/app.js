@@ -8,9 +8,10 @@
 window.activePinX = null;
 window.activePinY = null;
 window.canvasInstance = null;
-window.activeLiveEventCode = "";
+window.activeLiveEventCode = localStorage.getItem("active_live_event_code") || "";
 window.selectedEvent = "";
 window.activeMode = "research";
+window.preEventData = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   // Query all core DOM elements
@@ -186,6 +187,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (fetchFromNetwork) {
       await performNetworkFetch();
     }
+    updateDefaultModeForSelectedEvent();
     await handleEventSelectionChange();
 
     function updateDefaultModeForSelectedEvent() {
@@ -281,6 +283,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (window.syncManager) {
         showToast("Fetching pre-event team standings...");
         await window.syncManager.fetchPreEventTeamList(window.selectedEvent, (data, isStale) => {
+          window.preEventData = data;
           populatePreEventTeamSelector(data);
         });
       }
@@ -311,8 +314,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     placeholder.textContent = "-- Select Team --";
     preeventTeamSelect.appendChild(placeholder);
 
-    if (data && data.teams) {
-      data.teams.forEach(t => {
+    const teams = data ? (data.topTeams || data.teams) : null;
+    if (teams && Array.isArray(teams)) {
+      teams.forEach(t => {
         const opt = document.createElement("option");
         opt.value = t.num;
         opt.textContent = `${t.num} - ${t.name} (Rank: ${t.rank}, npOPR: ${t.npOPR.toFixed(1)})`;
@@ -345,6 +349,62 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (window.scoutingUI) window.scoutingUI.setAllianceStyle("Red");
     } else if (preeventAllianceBlue && preeventAllianceBlue.classList.contains("active")) {
       if (window.scoutingUI) window.scoutingUI.setAllianceStyle("Blue");
+    }
+
+    if (!selectedTeam) {
+      if (preeventLinksContainer) preeventLinksContainer.innerHTML = "";
+      if (preeventScoutedStatus) {
+        preeventScoutedStatus.style.display = "none";
+        preeventScoutedStatus.innerHTML = "";
+      }
+      return;
+    }
+
+    const activeOption = preeventTeamSelect.selectedOptions[0];
+    const lastEventRaw = activeOption ? activeOption.getAttribute("data-lastevent") : "";
+    let lastEventCode = "";
+    let lastEventName = "";
+
+    if (lastEventRaw && lastEventRaw.includes("|")) {
+      const parts = lastEventRaw.split("|");
+      lastEventCode = parts[0].trim();
+      lastEventName = parts[1].trim();
+    } else {
+      lastEventCode = lastEventRaw;
+      lastEventName = lastEventRaw;
+    }
+
+    if (preeventLinksContainer) {
+      const targetUrl = lastEventCode
+        ? `https://ftc-events.firstinspires.org/2025/${lastEventCode.toUpperCase()}/qualifications?team=${selectedTeam}`
+        : `https://ftc-events.firstinspires.org/2025/team/${selectedTeam}`;
+      
+      const badgeLabel = lastEventCode
+        ? `📺 Watch ${lastEventCode.toUpperCase()} Videos`
+        : `🌐 FIRST Matches (${selectedTeam})`;
+
+      preeventLinksContainer.innerHTML = `
+        <a href="${targetUrl}" target="_blank" class="preevent-badge-video" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(99,102,241,0.15); color:var(--accent-color); font-weight:600; font-size:0.85rem; border:1px solid rgba(99,102,241,0.3); transition:all 0.2s;">
+          ${badgeLabel}
+        </a>
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent('ftc team ' + selectedTeam + ' ' + lastEventName)}" target="_blank" class="preevent-badge-youtube" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(245,158,11,0.15); color:#f59e0b; font-weight:600; font-size:0.85rem; border:1px solid rgba(245,158,11,0.3); transition:all 0.2s;">
+          🔍 YouTube Search
+        </a>
+      `;
+    }
+
+    if (preeventScoutedStatus && window.preEventData) {
+      const completed = window.preEventData.completedMatches || [];
+      const teamMatches = completed.filter(m => String(m.team) === String(selectedTeam));
+      
+      if (teamMatches.length > 0) {
+        const matchesList = teamMatches.map(m => `Q${m.match}`).join(", ");
+        preeventScoutedStatus.innerHTML = `⚠️ Already scouted at this event: <strong>Match ${matchesList}</strong>`;
+        preeventScoutedStatus.style.display = "block";
+      } else {
+        preeventScoutedStatus.innerHTML = `✅ No matches scouted yet for Team ${selectedTeam} at this event.`;
+        preeventScoutedStatus.style.display = "block";
+      }
     }
 
     if (window.formManager) window.formManager.triggerAutosave();
@@ -562,10 +622,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // 4. Auton Starting Bar Canvas Instantiation
-  const canvasEl = document.getElementById("auto-map-canvas");
+  const canvasEl = document.getElementById("starting-pos-canvas");
   if (canvasEl) {
     window.canvasInstance = new window.ScoutingCanvas(canvasEl, (zoneString, x, y) => {
-      const fieldInput = document.getElementById("auto_range");
+      const fieldInput = document.getElementById("robotpos");
       if (fieldInput) {
         fieldInput.value = zoneString;
       }
@@ -574,29 +634,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.activePinX = x;
       window.activePinY = y;
 
-      const visualBtn = document.querySelector(`.range-toggle-btn[data-field='auto_range'][data-value='${zoneString}']`);
-      if (visualBtn) {
-        document.querySelectorAll(".range-toggle-btn[data-field='auto_range']").forEach(b => b.classList.remove("active"));
-        visualBtn.classList.add("active");
-      }
-
       if (window.feedbackManager) {
         window.feedbackManager.trigger("click");
       }
 
       if (window.formManager) window.formManager.triggerAutosave();
-    });
-    
-    // Clear canvas trigger on range button de-activation
-    document.querySelectorAll(".range-toggle-btn[data-field='auto_range']").forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (!btn.classList.contains("active") && window.canvasInstance) {
-          window.canvasInstance.clearPin();
-          window.activePinX = null;
-          window.activePinY = null;
-          if (window.formManager) window.formManager.triggerAutosave();
-        }
-      });
     });
   }
 
