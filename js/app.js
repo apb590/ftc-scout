@@ -331,8 +331,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             const res = await fetchWithTimeout(`${endpoint}?action=getAdminConfig`, { mode: 'cors', redirect: 'follow' });
             if (res.ok) {
               const config = await res.json();
-              if (config && config.targetEvent) {
-                activeLiveEventCode = config.targetEvent;
+              if (config) {
+                const isSimActive = config.simActive === true || config.simActive === 1 || String(config.simActive).toLowerCase() === "true";
+                activeLiveEventCode = isSimActive ? config.simTargetEvent : config.targetEvent;
                 localStorage.setItem("active_live_event_code", activeLiveEventCode);
                 updateDefaultModeForSelectedEvent();
               }
