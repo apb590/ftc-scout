@@ -51,7 +51,6 @@ class ScoutingCanvas {
 
     for (const [key, url] of Object.entries(imagesToLoad)) {
       const img = new Image();
-      img.crossOrigin = "anonymous";
       img.src = url;
       img.onload = () => {
         loadedCount++;

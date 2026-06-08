@@ -69,6 +69,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("[App] Failed to initialize active events dropdown:", e);
   }
 
+  // Bind refresh active events list
+  const refreshEventsBtn = document.getElementById("refresh-events-btn");
+  if (refreshEventsBtn) {
+    refreshEventsBtn.addEventListener("click", async () => {
+      refreshEventsBtn.disabled = true;
+      const originalText = refreshEventsBtn.textContent;
+      refreshEventsBtn.textContent = "⏳";
+      if (window.showToast) window.showToast("Updating active events from Google Sheets...");
+      try {
+        await initEventDropdown(true);
+        if (window.showToast) window.showToast("Events list refreshed successfully!");
+      } catch (err) {
+        console.error("[App] Failed to refresh events:", err);
+        if (window.showToast) window.showToast("Refresh failed. Check Web App URL in Settings.");
+      } finally {
+        refreshEventsBtn.disabled = false;
+        refreshEventsBtn.textContent = originalText;
+      }
+    });
+  }
+
   // Restore and persist Scouter name
   try {
     if (usernameInput) {
@@ -164,9 +185,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (fetchFromNetwork) {
       await performNetworkFetch();
-    } else {
-      await handleEventSelectionChange();
     }
+    await handleEventSelectionChange();
 
     function updateDefaultModeForSelectedEvent() {
       window.selectedEvent = eventSelect ? eventSelect.value : "";

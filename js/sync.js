@@ -330,6 +330,9 @@ class ScoutingSyncManager {
       }
     } catch (err) {
       console.warn(`[Sync] Background SWR fetch failed for ${dataUrl}:`, err);
+      if (navigator.onLine && window.showToast) {
+        window.showToast("Network fetch failed. Please check your Web App URL in settings and verify it is deployed for 'Anyone'.", "warning");
+      }
     }
   }
 
@@ -358,27 +361,28 @@ class ScoutingSyncManager {
    * Fetches the list of active events from the Google Sheet backend
    */
   async fetchEventConfig() {
+    const endpoint = this.getSyncEndpoint();
+    if (!endpoint) {
+      throw new Error("No sync endpoint URL configured.");
+    }
+    
     try {
-      const endpoint = this.getSyncEndpoint();
-      if (endpoint) {
-        const response = await fetch(`${endpoint}?action=getEventConfig`, { mode: 'cors', redirect: 'follow' });
-        if (response.ok) {
-          const events = await response.json();
+      const response = await fetch(`${endpoint}?action=getEventConfig`, { mode: 'cors', redirect: 'follow' });
+      if (response.ok) {
+        const events = await response.json();
+        if (events && Array.isArray(events)) {
           localStorage.setItem("event_config", JSON.stringify(events));
           console.log("[Sync] Event config successfully fetched and cached locally!");
           return events;
+        } else {
+          throw new Error("Invalid event config data structure returned from server.");
         }
+      } else {
+        throw new Error(`Server returned status: ${response.status}`);
       }
     } catch (err) {
-      console.warn("[Sync] Failed to fetch event config, falling back to cache:", err);
-    }
-    
-    const cached = localStorage.getItem("event_config");
-    try {
-      return cached ? JSON.parse(cached) : [];
-    } catch (e) {
-      console.warn("[Sync] Failed to parse cached event_config (fallback):", e);
-      return [];
+      console.warn("[Sync] Failed to fetch event config:", err);
+      throw err;
     }
   }
 
