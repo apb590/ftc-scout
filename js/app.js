@@ -320,40 +320,56 @@ document.addEventListener("DOMContentLoaded", async () => {
     placeholder.textContent = "-- Select Team --";
     preeventTeamSelect.appendChild(placeholder);
 
-    const teams = data ? (data.topTeams || data.teams) : null;
-    if (teams && Array.isArray(teams)) {
-      const completed = (data && data.completedMatches) || [];
-      const scoutedTeamsSet = new Set(completed.map(m => String(m.team)));
+    try {
+      const teams = data ? (data.topTeams || data.teams) : null;
+      if (teams && Array.isArray(teams)) {
+        const completed = (data && data.completedMatches) || [];
+        const scoutedTeamsSet = new Set(completed.map(m => String(m.team)));
 
-      const sortedTeams = [...teams].sort((a, b) => (b.npOPR || 0) - (a.npOPR || 0));
+        const sortedTeams = [...teams].sort((a, b) => {
+          const aOpr = a && typeof a.npOPR === "number" ? a.npOPR : parseFloat(a && a.npOPR) || 0;
+          const bOpr = b && typeof b.npOPR === "number" ? b.npOPR : parseFloat(b && b.npOPR) || 0;
+          return bOpr - aOpr;
+        });
 
-      const unscouted = [];
-      const scouted = [];
+        const unscouted = [];
+        const scouted = [];
 
-      sortedTeams.forEach(t => {
-        if (scoutedTeamsSet.has(String(t.num))) {
-          scouted.push(t);
-        } else {
-          unscouted.push(t);
-        }
-      });
+        sortedTeams.forEach(t => {
+          if (t && t.num !== undefined && t.num !== null) {
+            if (scoutedTeamsSet.has(String(t.num))) {
+              scouted.push(t);
+            } else {
+              unscouted.push(t);
+            }
+          }
+        });
 
-      unscouted.forEach(t => {
-        const opt = document.createElement("option");
-        opt.value = t.num;
-        opt.textContent = `${t.num} - ${t.name} (Rank: ${t.rank}, npOPR: ${t.npOPR.toFixed(1)})`;
-        opt.setAttribute("data-lastevent", t.lastEvent || "");
-        preeventTeamSelect.appendChild(opt);
-      });
+        const renderOption = (t, isScouted) => {
+          try {
+            const opt = document.createElement("option");
+            opt.value = t.num;
+            const rank = t.rank !== undefined && t.rank !== null ? t.rank : "N/A";
+            const oprNum = typeof t.npOPR === "number" ? t.npOPR : parseFloat(t.npOPR);
+            const oprStr = !isNaN(oprNum) ? oprNum.toFixed(1) : "0.0";
+            const name = t.name || ("Team " + t.num);
+            
+            opt.textContent = `${t.num} - ${name} (Rank: ${rank}, npOPR: ${oprStr})${isScouted ? " (Scouted)" : ""}`;
+            opt.setAttribute("data-lastevent", t.lastEvent || "");
+            if (isScouted) {
+              opt.style.color = "#888";
+            }
+            preeventTeamSelect.appendChild(opt);
+          } catch (optErr) {
+            console.error("[App] Failed to render team option:", t, optErr);
+          }
+        };
 
-      scouted.forEach(t => {
-        const opt = document.createElement("option");
-        opt.value = t.num;
-        opt.textContent = `${t.num} - ${t.name} (Rank: ${t.rank}, npOPR: ${t.npOPR.toFixed(1)}) (Scouted)`;
-        opt.setAttribute("data-lastevent", t.lastEvent || "");
-        opt.style.color = "#888";
-        preeventTeamSelect.appendChild(opt);
-      });
+        unscouted.forEach(t => renderOption(t, false));
+        scouted.forEach(t => renderOption(t, true));
+      }
+    } catch (err) {
+      console.error("[App] Error in populatePreEventTeamSelector:", err);
     }
 
     if (currentVal && Array.from(preeventTeamSelect.options).some(o => o.value === currentVal)) {
