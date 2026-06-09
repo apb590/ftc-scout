@@ -664,61 +664,98 @@
         console.warn("[UI] Failed to parse cached admin config:", e);
       }
 
+      // Determine test matches list
+      let testMatchNums = [123, 999, 9999, 1234, 1000]; // default fallback
+      if (adminConfig.testMatchNumbers) {
+        testMatchNums = String(adminConfig.testMatchNumbers)
+          .split(",")
+          .map(m => parseInt(m.trim()))
+          .filter(m => !isNaN(m));
+      }
+
+      // Determine active selected event code
+      const currentEvent = (window.selectedEvent || localStorage.getItem("sticky_event") || "").trim().toLowerCase();
+
+      // Find max scheduled match number from the event qualification schedule
+      let maxScheduledMatch = 0;
+      let savedSchedule = null;
+      if (currentEvent) {
+        savedSchedule = localStorage.getItem(`qual_schedule_${currentEvent}`);
+      }
+      if (!savedSchedule) {
+        savedSchedule = localStorage.getItem("qual_schedule");
+      }
+      try {
+        if (savedSchedule) {
+          const scheduleObj = JSON.parse(savedSchedule);
+          if (scheduleObj) {
+            const keys = Object.keys(scheduleObj).map(k => parseInt(k)).filter(k => !isNaN(k));
+            if (keys.length > 0) {
+              maxScheduledMatch = Math.max(...keys);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[UI] Failed to parse qual schedule to find max match:", e);
+      }
+
+      // Progress validation checker helper
+      const isValidMatchNo = (m) => {
+        if (isNaN(m) || m <= 0) return false;
+        if (testMatchNums.includes(m)) return false;
+        if (maxScheduledMatch > 0 && m > maxScheduledMatch) return false;
+        return true;
+      };
+
+      // Collect progress candidates from all sources
+      const progressCandidates = [];
+
+      // Candidate A: Simulated match threshold (if active)
       const isSimActive = adminConfig.simActive === true || adminConfig.simActive === 1 || String(adminConfig.simActive).toLowerCase() === "true";
-      
-      if (isSimActive) {
-        latestMatch = parseInt(adminConfig.simMatchThreshold) || 1;
-      } else {
-        // Query IndexedDB for latest match of the current event (excluding test matches)
-        let testMatchNums = [123, 999, 9999, 1234, 1000]; // default fallback
-        if (adminConfig.testMatchNumbers) {
-          testMatchNums = String(adminConfig.testMatchNumbers)
-            .split(",")
-            .map(m => parseInt(m.trim()))
-            .filter(m => !isNaN(m));
+      if (isSimActive && adminConfig.simMatchThreshold) {
+        const simMatch = parseInt(adminConfig.simMatchThreshold);
+        if (isValidMatchNo(simMatch)) {
+          progressCandidates.push(simMatch);
         }
+      }
 
-        const currentEvent = (window.selectedEvent || localStorage.getItem("sticky_event") || "").trim().toLowerCase();
+      // Candidate B: All completed match numbers in IndexedDB records for the current event
+      try {
+        if (window.dbManager) {
+          const records = await window.dbManager.getAllRecords();
+          if (records && records.length > 0) {
+            records.forEach(r => {
+              const m = parseInt(r.matchno);
+              if (isValidMatchNo(m)) {
+                // Only consider matches for the current event
+                const recordEvent = String(r.scouted_event || r.upcoming_event || "").trim().toLowerCase();
+                if (currentEvent && recordEvent && recordEvent !== currentEvent) return;
+                
+                // Ignore pre-event
+                const isPre = r.is_preevent === 1 || r.is_preevent === "1" || r.is_preevent === true || String(r.is_preevent).toLowerCase() === "true";
+                if (isPre) return;
 
-        try {
-          if (window.dbManager) {
-            const records = await window.dbManager.getAllRecords();
-            if (records && records.length > 0) {
-              records.forEach(r => {
-                const m = parseInt(r.matchno);
-                if (!isNaN(m)) {
-                  // Ignore test match numbers
-                  if (testMatchNums.includes(m)) return;
-                  
-                  // Only consider matches for the current event
-                  const recordEvent = String(r.scouted_event || r.upcoming_event || "").trim().toLowerCase();
-                  if (currentEvent && recordEvent && recordEvent !== currentEvent) return;
-                  
-                  // Ignore pre-event
-                  const isPre = r.is_preevent === 1 || r.is_preevent === "1" || r.is_preevent === true || String(r.is_preevent).toLowerCase() === "true";
-                  if (isPre) return;
-
-                  if (m > latestMatch) {
-                    latestMatch = m;
-                  }
-                }
-              });
-            }
-          }
-        } catch (e) {
-          console.warn("[UI] Failed to query latest scouted match number from IndexedDB:", e);
-        }
-
-        // Also check if current match input is higher than found so far (ignoring test matches)
-        const matchInput = document.getElementById("matchno");
-        if (matchInput && matchInput.value) {
-          const inputVal = parseInt(matchInput.value);
-          if (!isNaN(inputVal) && !testMatchNums.includes(inputVal)) {
-            if (inputVal > latestMatch) {
-              latestMatch = inputVal;
-            }
+                progressCandidates.push(m);
+              }
+            });
           }
         }
+      } catch (e) {
+        console.warn("[UI] Failed to query latest scouted match number from IndexedDB:", e);
+      }
+
+      // Candidate C: The current match input value `#matchno`
+      const matchInput = document.getElementById("matchno");
+      if (matchInput && matchInput.value) {
+        const inputVal = parseInt(matchInput.value);
+        if (isValidMatchNo(inputVal)) {
+          progressCandidates.push(inputVal);
+        }
+      }
+
+      // Determine final latestMatch value as max of all valid candidates
+      if (progressCandidates.length > 0) {
+        latestMatch = Math.max(...progressCandidates);
       }
 
       const displayMinMatch = latestMatch > 3 ? latestMatch - 3 : 1;
