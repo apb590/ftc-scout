@@ -24,7 +24,10 @@ class ScoutingSchedulerClient {
    */
   async fetchScouterConfig(updateCallback = null) {
     const endpoint = this.getEndpoint();
-    const dataUrl = `${endpoint}?action=getScouterConfig`;
+    const eventCode = window.selectedEvent || localStorage.getItem("sticky_event") || "";
+    const dataUrl = eventCode
+      ? `${endpoint}?action=getScouterConfig&event=${eventCode}`
+      : `${endpoint}?action=getScouterConfig`;
     const cacheKey = "scouter_config";
 
     await window.syncManager.executeSWR(cacheKey, dataUrl, (data, isStale) => {
@@ -134,11 +137,13 @@ class ScoutingSchedulerClient {
    * Submits a scouter active availability and shift status toggle
    */
   async postScouterToggles(scouterName, active, shifts) {
+    const eventCode = window.selectedEvent || localStorage.getItem("sticky_event") || "";
     const toggle = {
       action: "postScouterToggles",
       scouterName: scouterName,
       active: active,
-      shifts: shifts // array of 4 booleans
+      shifts: shifts, // array of 4 booleans
+      event: eventCode
     };
 
     // Update local scouter_config cache immediately
