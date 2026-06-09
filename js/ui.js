@@ -691,6 +691,41 @@
 
       assignments.sort((a, b) => a.match - b.match);
 
+      // Identify field transitions
+      const transitions = [];
+      for (let i = 1; i < assignments.length; i++) {
+        const prev = assignments[i - 1];
+        const curr = assignments[i];
+        if (prev.field !== curr.field) {
+          transitions.push({
+            fromMatch: prev.match,
+            toMatch: curr.match,
+            fromField: prev.field,
+            toField: curr.field
+          });
+        }
+      }
+
+      let headerHtml = "";
+      if (transitions.length > 0) {
+        headerHtml += `
+          <div class="premium-card" style="background: rgba(245, 158, 11, 0.08); border: 1px solid var(--color-warning); padding: 12px; margin-bottom: 12px; border-radius: 8px; box-shadow: none;">
+            <div style="font-weight: bold; color: var(--color-warning); font-size: 0.85rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              ⚠️ Field Transitions detected for ${selectedName}
+            </div>
+            <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: var(--text-primary); line-height: 1.4;">
+        `;
+        transitions.forEach(tr => {
+          headerHtml += `
+            <li style="margin-bottom: 2px;">Shift from <strong>${tr.fromField}</strong> (Match ${tr.fromMatch}) &rarr; <strong>${tr.toField}</strong> (Match ${tr.toMatch})</li>
+          `;
+        });
+        headerHtml += `
+            </ul>
+          </div>
+        `;
+      }
+
       let html = "";
       assignments.forEach(assign => {
         const allianceClass = assign.alliance.toLowerCase();
@@ -722,7 +757,7 @@
         `;
       });
 
-      container.innerHTML = html;
+      container.innerHTML = headerHtml + html;
 
       container.querySelectorAll(".btn-scout-now").forEach(btn => {
         btn.addEventListener("click", () => {
