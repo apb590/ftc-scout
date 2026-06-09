@@ -35,6 +35,88 @@
 
       this.phaseSteps = document.querySelectorAll(".phase-step");
       this.progressSteps = document.querySelectorAll(".progress-step");
+
+      // Bind navigation bar tabs switching
+      const navTabs = document.querySelectorAll(".nav-tab");
+      const formSections = document.querySelectorAll(".form-section");
+      navTabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+          const targetId = tab.getAttribute("data-target");
+          
+          if (window.feedbackManager) {
+            window.feedbackManager.trigger("click");
+          }
+          
+          navTabs.forEach(t => t.classList.remove("active"));
+          tab.classList.add("active");
+          
+          formSections.forEach(sec => sec.classList.remove("active"));
+          const targetSec = document.getElementById(targetId);
+          if (targetSec) {
+            targetSec.classList.add("active");
+          }
+          
+          if (targetId === "history-section") {
+            this.renderHistoryList();
+          }
+          if (targetId === "audit-section") {
+            this.renderAuditLogsList();
+          }
+        });
+      });
+
+      // Bind scouter schedule filter change
+      const filterSelect = document.getElementById("schedule-scouter-filter");
+      if (filterSelect) {
+        filterSelect.addEventListener("change", () => {
+          const selectedName = filterSelect.value;
+          const usernameInput = document.getElementById("username");
+          if (selectedName && usernameInput) {
+            let formattedName = selectedName.toLowerCase();
+            if (!formattedName.includes("_")) {
+              formattedName = formattedName + "_h";
+            }
+            usernameInput.value = formattedName;
+            localStorage.setItem("sticky_scouter_name", formattedName);
+          }
+          this.renderSchedulerDashboard();
+          this.updateAccessControl();
+        });
+      }
+
+      // Bind schedule refresh button
+      const refreshSchedBtn = document.getElementById("refresh-schedule-btn");
+      if (refreshSchedBtn) {
+        refreshSchedBtn.addEventListener("click", async () => {
+          refreshSchedBtn.disabled = true;
+          const originalText = refreshSchedBtn.textContent;
+          refreshSchedBtn.textContent = "⏳";
+          if (window.showToast) window.showToast("Syncing schedule assignments...");
+          try {
+            if (window.schedulerClient) {
+              await window.schedulerClient.fetchScouterConfig();
+              await window.schedulerClient.fetchScoutingSchedule();
+              this.renderSchedulerDashboard();
+              this.renderScouterSettings();
+            }
+          } catch(e) {
+            console.error(e);
+          } finally {
+            refreshSchedBtn.disabled = false;
+            refreshSchedBtn.textContent = originalText;
+          }
+        });
+      }
+
+      // Bind username inputs for Head Scout access control update
+      const usernameInput = document.getElementById("username");
+      if (usernameInput) {
+        usernameInput.addEventListener("input", () => this.updateAccessControl());
+        usernameInput.addEventListener("change", () => this.updateAccessControl());
+      }
+
+      // Run initial check
+      setTimeout(() => this.updateAccessControl(), 100);
     }
 
     /**
@@ -476,6 +558,398 @@
         alert("Failed to connect to spreadsheet backend: " + err.message);
       }
     }
+
+    /**
+     * Shows/hides Audit Logs tab and restricts bypass/audit controls based on Head Scout name
+     */
+    updateAccessControl() {
+      const usernameInput = document.getElementById("username");
+      const currentScouter = usernameInput ? usernameInput.value.trim() : "";
+      
+      const headScout = window.headScoutName || "Alden";
+      const isHeadScout = currentScouter.toLowerCase().startsWith(headScout.toLowerCase().split("_")[0]);
+      
+      const auditTab = document.getElementById("tab-audit");
+      if (auditTab) {
+        if (isHeadScout) {
+          auditTab.style.display = "inline-block";
+        } else {
+          auditTab.style.display = "none";
+          if (auditTab.classList.contains("active")) {
+            const scoutTab = document.getElementById("tab-scout");
+            if (scoutTab) scoutTab.click();
+          }
+        }
+      }
+      
+      document.querySelectorAll(".btn-bypass-audit").forEach(btn => {
+        if (isHeadScout) {
+          btn.style.display = "inline-block";
+        } else {
+          btn.style.display = "none";
+        }
+      });
+    }
+
+    /**
+     * Renders the logged-in scouter's personalized timetable and dropdown filter
+     */
+    renderSchedulerDashboard() {
+      const filterSelect = document.getElementById("schedule-scouter-filter");
+      const container = document.getElementById("schedule-timetable-container");
+      if (!container) return;
+
+      const scouterConfigCached = localStorage.getItem("scouter_config");
+      const scheduleCached = localStorage.getItem("scouting_schedule");
+
+      let scouters = [];
+      let schedule = [];
+
+      try {
+        if (scouterConfigCached) {
+          const config = JSON.parse(scouterConfigCached);
+          scouters = config.scouters || [];
+          window.headScoutName = config.headScout || "Alden";
+        }
+      } catch (e) {
+        console.warn("[UI] Failed to parse scouter config:", e);
+      }
+
+      try {
+        if (scheduleCached) {
+          schedule = JSON.parse(scheduleCached) || [];
+        }
+      } catch (e) {
+        console.warn("[UI] Failed to parse schedule:", e);
+      }
+
+      if (filterSelect) {
+        const currentValue = filterSelect.value;
+        filterSelect.innerHTML = `<option value="">-- Choose Name --</option>`;
+        scouters.forEach(scout => {
+          if (scout.active) {
+            const opt = document.createElement("option");
+            opt.value = scout.name;
+            opt.textContent = scout.name;
+            filterSelect.appendChild(opt);
+          }
+        });
+        if (currentValue && Array.from(filterSelect.options).some(o => o.value === currentValue)) {
+          filterSelect.value = currentValue;
+        }
+      }
+
+      this.updateAccessControl();
+
+      const selectedName = filterSelect ? filterSelect.value : "";
+      if (!selectedName) {
+        container.innerHTML = `
+          <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 12px;">
+            Select a scouter name above to load assignments.
+          </div>
+        `;
+        return;
+      }
+
+      const assignments = [];
+      schedule.forEach(row => {
+        let role = "";
+        let team = "";
+        if (row.red1Scout.toLowerCase() === selectedName.toLowerCase()) { role = "red1"; team = row.red1Team; }
+        else if (row.red2Scout.toLowerCase() === selectedName.toLowerCase()) { role = "red2"; team = row.red2Team; }
+        else if (row.blue1Scout.toLowerCase() === selectedName.toLowerCase()) { role = "blue1"; team = row.blue1Team; }
+        else if (row.blue2Scout.toLowerCase() === selectedName.toLowerCase()) { role = "blue2"; team = row.blue2Team; }
+
+        if (role) {
+          assignments.push({
+            match: parseInt(row.match),
+            field: row.field,
+            role: role,
+            team: team,
+            alliance: role.startsWith("red") ? "Red" : "Blue",
+            rawRow: row
+          });
+        }
+      });
+
+      if (assignments.length === 0) {
+        container.innerHTML = `
+          <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 12px;">
+            No assignments found for ${selectedName} at this event.
+          </div>
+        `;
+        return;
+      }
+
+      assignments.sort((a, b) => a.match - b.match);
+
+      let html = "";
+      assignments.forEach(assign => {
+        const allianceClass = assign.alliance.toLowerCase();
+        const allianceDotClass = allianceClass === "red" ? "red" : "blue";
+        
+        html += `
+          <div class="history-item schedule-item" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="history-team" style="font-weight: bold; font-family: 'Outfit';">
+                <span class="alliance-dot ${allianceDotClass}"></span>
+                Match ${assign.match} &bull; Team ${assign.team}
+              </div>
+              <span class="sync-badge" style="background: var(--card-border); color: var(--text-primary); font-size: 0.75rem;">${assign.field}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+              <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                Role: <strong>${assign.alliance} ${assign.role.endsWith("1") ? "1" : "2"}</strong>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-primary btn-scout-now" data-match="${assign.match}" data-team="${assign.team}" data-alliance="${assign.alliance}" data-field="${assign.field}" style="padding: 4px 10px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none;">
+                  Scout Match
+                </button>
+                <button type="button" class="btn-secondary btn-sub-scout" data-match="${assign.match}" data-role="${assign.role}" data-scouter="${selectedName}" style="padding: 4px 8px; font-size: 0.75rem; border-color: var(--color-warning); color: var(--color-warning); box-shadow: none; background: rgba(245, 158, 11, 0.05);">
+                  Sub In
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+
+      container.querySelectorAll(".btn-scout-now").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const mNum = btn.getAttribute("data-match");
+          const tNum = btn.getAttribute("data-team");
+          const alliance = btn.getAttribute("data-alliance");
+          
+          if (window.feedbackManager) window.feedbackManager.trigger("click");
+
+          const matchInput = document.getElementById("matchno");
+          if (matchInput) {
+            matchInput.value = mNum;
+            if (window.updateTeamSelector) {
+              window.updateTeamSelector();
+            }
+          }
+          
+          const teamSelect = document.getElementById("teamno");
+          if (teamSelect) {
+            teamSelect.value = tNum;
+          }
+          
+          this.setAllianceStyle(alliance);
+
+          const startingPosCard = document.getElementById("starting-pos-canvas") ? document.getElementById("starting-pos-canvas").closest(".premium-card") : null;
+          if (startingPosCard) {
+            startingPosCard.scrollIntoView({ behavior: "smooth" });
+          }
+          this.showToast(`Scouting setup filled for Match ${mNum} Team ${tNum}!`);
+        });
+      });
+
+      container.querySelectorAll(".btn-sub-scout").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const match = btn.getAttribute("data-match");
+          const role = btn.getAttribute("data-role");
+          const originalScouter = btn.getAttribute("data-scouter");
+          
+          this.triggerSubstitutionOverlay(match, role, originalScouter, scouters);
+        });
+      });
+    }
+
+    /**
+     * Opens a selection modal to substitute another scout for a match assignment
+     */
+    triggerSubstitutionOverlay(match, role, originalScouter, scouters) {
+      if (window.feedbackManager) window.feedbackManager.trigger("click");
+      
+      const availableScouts = scouters.filter(s => s.active && s.name.toLowerCase() !== originalScouter.toLowerCase());
+      
+      if (availableScouts.length === 0) {
+        alert("No other active scouters are currently available in Settings to substitute!");
+        return;
+      }
+      
+      const overlay = document.createElement("div");
+      overlay.className = "overlay-modal active";
+      overlay.style.zIndex = "3000";
+      
+      const content = document.createElement("div");
+      content.className = "modal-content";
+      content.style.maxWidth = "400px";
+      content.style.textAlign = "center";
+      
+      const header = document.createElement("div");
+      header.className = "modal-header";
+      
+      const title = document.createElement("h3");
+      title.style.fontFamily = "'Outfit', sans-serif";
+      title.textContent = `Substitute Scout (Match ${match})`;
+      
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "modal-close";
+      closeBtn.innerHTML = "&times;";
+      closeBtn.addEventListener("click", () => overlay.remove());
+      
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+      content.appendChild(header);
+      
+      const body = document.createElement("div");
+      body.style.margin = "16px 0";
+      body.style.textAlign = "left";
+      
+      const label = document.createElement("label");
+      label.className = "input-label";
+      label.textContent = `Transfer Match ${match} assignment from ${originalScouter} to:`;
+      
+      const select = document.createElement("select");
+      select.className = "input-control";
+      select.style.marginTop = "8px";
+      
+      availableScouts.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.name;
+        opt.textContent = s.name;
+        select.appendChild(opt);
+      });
+      
+      body.appendChild(label);
+      body.appendChild(select);
+      content.appendChild(body);
+      
+      const submitBtn = document.createElement("button");
+      submitBtn.className = "btn-primary";
+      submitBtn.textContent = "Confirm Substitution";
+      submitBtn.style.background = "var(--color-warning)";
+      submitBtn.addEventListener("click", async () => {
+        const newScout = select.value;
+        if (newScout) {
+          overlay.remove();
+          if (window.schedulerClient) {
+            await window.schedulerClient.postSubstitution(match, role, newScout);
+          }
+        }
+      });
+      
+      content.appendChild(submitBtn);
+      overlay.appendChild(content);
+      document.body.appendChild(overlay);
+    }
+
+    /**
+     * Renders scouters roster inside Settings modal with toggles and shift checkboxes
+     */
+    renderScouterSettings() {
+      const listContainer = document.getElementById("scouter-availability-settings-list");
+      if (!listContainer) return;
+
+      const scouterConfigCached = localStorage.getItem("scouter_config");
+      let scouters = [];
+      
+      try {
+        if (scouterConfigCached) {
+          const config = JSON.parse(scouterConfigCached);
+          scouters = config.scouters || [];
+        }
+      } catch (e) {
+        console.warn("[UI] Failed to parse scouter config for settings:", e);
+      }
+
+      if (scouters.length === 0) {
+        listContainer.innerHTML = `
+          <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem;">
+            No scouters loaded. Sync from sheets to load list.
+          </div>
+        `;
+        return;
+      }
+
+      let html = "";
+      scouters.forEach(scout => {
+        const activeText = scout.active ? "Active" : "Inactive";
+        const btnBg = scout.active ? "hsl(140, 60%, 40%)" : "transparent";
+        const btnColor = scout.active ? "#ffffff" : "var(--text-secondary)";
+        
+        html += `
+          <div style="
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            margin-bottom: 8px;
+          ">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: bold; font-size: 0.95rem; color: var(--text-primary);">
+                ${scout.name} ${scout.isHead ? "👑" : ""}
+              </span>
+              <button type="button" class="btn-toggle-scout-active" data-name="${scout.name}" data-active="${scout.active}" style="
+                padding: 4px 8px;
+                font-size: 0.75rem;
+                background: ${btnBg};
+                color: ${btnColor};
+                border: 1px solid ${scout.active ? "transparent" : "var(--border-color)"};
+                cursor: pointer;
+                border-radius: var(--radius-sm);
+                font-weight: bold;
+                transition: all 0.2s;
+              ">${activeText}</button>
+            </div>
+            
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
+              ${[1, 2, 3, 4].map(sNum => {
+                const shiftChecked = scout.shifts && scout.shifts[sNum - 1] === true ? "checked" : "";
+                return `
+                  <label style="display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--text-secondary); cursor: pointer; user-select: none;">
+                    <input type="checkbox" class="scout-shift-checkbox" data-name="${scout.name}" data-shift="${sNum - 1}" ${shiftChecked} style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--accent-color);">
+                    S${sNum}
+                  </label>
+                `;
+              }).join("")}
+            </div>
+          </div>
+        `;
+      });
+
+      listContainer.innerHTML = html;
+
+      listContainer.querySelectorAll(".btn-toggle-scout-active").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const name = btn.getAttribute("data-name");
+          const currentActive = btn.getAttribute("data-active") === "true";
+          
+          if (window.feedbackManager) window.feedbackManager.trigger("click");
+          
+          const targetScout = scouters.find(s => s.name === name);
+          if (targetScout && window.schedulerClient) {
+            await window.schedulerClient.postScouterToggles(name, !currentActive, targetScout.shifts);
+          }
+        });
+      });
+
+      listContainer.querySelectorAll(".scout-shift-checkbox").forEach(box => {
+        box.addEventListener("change", async () => {
+          const name = box.getAttribute("data-name");
+          const shiftIdx = parseInt(box.getAttribute("data-shift"));
+          const checked = box.checked;
+          
+          if (window.feedbackManager) window.feedbackManager.trigger("click");
+          
+          const targetScout = scouters.find(s => s.name === name);
+          if (targetScout && window.schedulerClient) {
+            const shifts = [...targetScout.shifts];
+            shifts[shiftIdx] = checked;
+            await window.schedulerClient.postScouterToggles(name, targetScout.active, shifts);
+          }
+        });
+      });
+    }
+  }
+
   /**
    * FeedbackManager - Handles synthesized Web Audio ticks and haptic vibrations.
    */

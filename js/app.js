@@ -70,6 +70,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("[App] Failed to initialize active events dropdown:", e);
   }
 
+  // Bootstrap scouter configs and schedule
+  if (window.schedulerClient) {
+    window.schedulerClient.fetchScouterConfig(() => {
+      if (window.scoutingUI) {
+        window.scoutingUI.renderScouterSettings();
+        window.scoutingUI.renderSchedulerDashboard();
+      }
+    });
+    window.schedulerClient.fetchScoutingSchedule(() => {
+      if (window.scoutingUI) {
+        window.scoutingUI.renderSchedulerDashboard();
+      }
+    });
+  }
+
   // Bind refresh active events list
   const refreshEventsBtn = document.getElementById("refresh-events-btn");
   if (refreshEventsBtn) {
@@ -98,6 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const saveName = () => {
         localStorage.setItem("sticky_scouter_name", usernameInput.value.trim());
         if (window.formManager) window.formManager.triggerAutosave();
+        updateTeamSelector();
       };
       usernameInput.addEventListener("input", saveName);
       usernameInput.addEventListener("change", saveName);
@@ -811,6 +827,42 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (currentValue && teams.some(t => String(t.num) === String(currentValue))) {
           teamSelect.value = currentValue;
+        }
+
+        // Autofill logic from Scouting Schedule
+        const scouterNameVal = usernameInput ? usernameInput.value.trim().toLowerCase() : "";
+        if (scouterNameVal) {
+          const scheduleCached = localStorage.getItem("scouting_schedule");
+          if (scheduleCached) {
+            try {
+              const scouterSchedule = JSON.parse(scheduleCached) || [];
+              const assignment = scouterSchedule.find(row => parseInt(row.match) === matchVal);
+              if (assignment) {
+                let assignedTeam = "";
+                let assignedAlliance = "";
+                
+                const checkScoutMatch = (scoutFieldVal) => {
+                  if (!scoutFieldVal) return false;
+                  const cleanFieldVal = scoutFieldVal.toLowerCase();
+                  return scouterNameVal.startsWith(cleanFieldVal) || cleanFieldVal.startsWith(scouterNameVal.split("_")[0]);
+                };
+                
+                if (checkScoutMatch(assignment.red1Scout)) { assignedTeam = assignment.red1Team; assignedAlliance = "Red"; }
+                else if (checkScoutMatch(assignment.red2Scout)) { assignedTeam = assignment.red2Team; assignedAlliance = "Red"; }
+                else if (checkScoutMatch(assignment.blue1Scout)) { assignedTeam = assignment.blue1Team; assignedAlliance = "Blue"; }
+                else if (checkScoutMatch(assignment.blue2Scout)) { assignedTeam = assignment.blue2Team; assignedAlliance = "Blue"; }
+                
+                if (assignedTeam) {
+                  teamSelect.value = assignedTeam;
+                  if (window.scoutingUI) {
+                    window.scoutingUI.setAllianceStyle(assignedAlliance);
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn("[App] Error matching schedule for autofill:", e);
+            }
+          }
         }
       } else {
         // Restore input type="number" if not in schedule

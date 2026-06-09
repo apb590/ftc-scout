@@ -198,6 +198,33 @@
             <input type="hidden" id="alliance" value="">
           </div>
 
+          <!-- SECTION 1B: MY SCHEDULE -->
+          <div class="premium-card" id="my-schedule-card" style="margin-top: 16px;">
+            <h2 class="card-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <span>📅 My Assignments Schedule</span>
+              <button type="button" id="refresh-schedule-btn" style="
+                background: rgba(99, 102, 241, 0.1);
+                border: 1px solid rgba(99, 102, 241, 0.2);
+                border-radius: var(--radius-sm);
+                color: var(--accent-color);
+                padding: 4px 10px;
+                font-size: 0.8rem;
+                cursor: pointer;
+              ">↻ Refresh</button>
+            </h2>
+            <div class="input-group" style="margin-bottom: 12px;">
+              <label class="input-label" for="schedule-scouter-filter">Select Your Name to View Schedule:</label>
+              <select id="schedule-scouter-filter" class="input-control">
+                <option value="">-- Choose Name --</option>
+              </select>
+            </div>
+            <div id="schedule-timetable-container" style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 12px;">
+                Select a scouter name above to load assignments.
+              </div>
+            </div>
+          </div>
+
           <!-- SECTION 2: INTERACTIVE CANVASES STARTING POSITION -->
           <div class="premium-card">
             <h2 class="card-title">Starting Position</h2>
@@ -658,6 +685,16 @@
         </div>
       </div>
 
+      <div class="input-group" style="margin-top: 16px; border-top: 1px dashed var(--card-border); padding-top: 16px;">
+        <label class="input-label" style="font-family: 'Outfit', sans-serif;">Scouter Availability Toggles</label>
+        <p class="input-label" style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">
+          Toggle active availability and shift blocks:
+        </p>
+        <div id="scouter-availability-settings-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; padding-right: 4px;">
+          <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem;">Loading scouters...</div>
+        </div>
+      </div>
+
       <button type="button" class="btn-primary" id="save-settings-btn" style="background: hsl(260, 60%, 60%); box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); margin-top: 8px;">Save & Apply Changes</button>
     </div>
   </div>
@@ -697,6 +734,7 @@
   <script src="js/canvas.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/sw-client.js"></script>
+  <script src="js/scheduler-client.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/form-manager.js"></script>
   <script src="js/app.js"></script>
