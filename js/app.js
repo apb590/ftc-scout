@@ -843,8 +843,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 
                 const checkScoutMatch = (scoutFieldVal) => {
                   if (!scoutFieldVal) return false;
-                  const cleanFieldVal = scoutFieldVal.toLowerCase();
-                  return scouterNameVal.startsWith(cleanFieldVal) || cleanFieldVal.startsWith(scouterNameVal.split("_")[0]);
+                  const targetShort = scouterNameVal.split("_")[0];
+                  return scoutFieldVal.split(",").map(s => s.trim().toLowerCase()).some(cleanFieldVal => {
+                    return scouterNameVal.startsWith(cleanFieldVal) || cleanFieldVal.startsWith(targetShort);
+                  });
                 };
                 
                 if (checkScoutMatch(assignment.red1Scout)) { assignedTeam = assignment.red1Team; assignedAlliance = "Red"; }

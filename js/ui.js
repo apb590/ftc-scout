@@ -655,10 +655,18 @@
       schedule.forEach(row => {
         let role = "";
         let team = "";
-        if (row.red1Scout.toLowerCase() === selectedName.toLowerCase()) { role = "red1"; team = row.red1Team; }
-        else if (row.red2Scout.toLowerCase() === selectedName.toLowerCase()) { role = "red2"; team = row.red2Team; }
-        else if (row.blue1Scout.toLowerCase() === selectedName.toLowerCase()) { role = "blue1"; team = row.blue1Team; }
-        else if (row.blue2Scout.toLowerCase() === selectedName.toLowerCase()) { role = "blue2"; team = row.blue2Team; }
+        const checkScout = (scoutField) => {
+          if (!scoutField || !selectedName) return false;
+          const target = selectedName.trim().toLowerCase();
+          const targetShort = target.split("_")[0];
+          return scoutField.split(",").map(s => s.trim().toLowerCase()).some(s => {
+            return s === target || s === targetShort || target.startsWith(s) || s.startsWith(targetShort);
+          });
+        };
+        if (checkScout(row.red1Scout)) { role = "red1"; team = row.red1Team; }
+        else if (checkScout(row.red2Scout)) { role = "red2"; team = row.red2Team; }
+        else if (checkScout(row.blue1Scout)) { role = "blue1"; team = row.blue1Team; }
+        else if (checkScout(row.blue2Scout)) { role = "blue2"; team = row.blue2Team; }
 
         if (role) {
           assignments.push({
@@ -828,7 +836,7 @@
         if (newScout) {
           overlay.remove();
           if (window.schedulerClient) {
-            await window.schedulerClient.postSubstitution(match, role, newScout);
+            await window.schedulerClient.postSubstitution(match, role, newScout, originalScouter);
           }
         }
       });

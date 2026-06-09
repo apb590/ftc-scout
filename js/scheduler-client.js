@@ -55,12 +55,13 @@ class ScoutingSchedulerClient {
   /**
    * Submits a match-level scouter substitution
    */
-  async postSubstitution(match, allianceRole, scoutName) {
+  async postSubstitution(match, allianceRole, scoutName, originalScout) {
     const sub = {
       action: "postSubstitution",
       match: parseInt(match),
       allianceRole: allianceRole, // red1, red2, blue1, blue2
-      scoutName: scoutName
+      scoutName: scoutName,
+      originalScout: originalScout
     };
 
     // Update local cached schedule immediately so the user doesn't see a delay
@@ -72,7 +73,19 @@ class ScoutingSchedulerClient {
         const matchItem = schedule.find(m => parseInt(m.match) === parseInt(match));
         if (matchItem) {
           const roleKey = allianceRole + "Scout";
-          matchItem[roleKey] = scoutName;
+          let currentValue = matchItem[roleKey] || "";
+          if (currentValue && originalScout) {
+            const list = currentValue.split(",").map(s => s.trim());
+            const idx = list.map(s => s.toLowerCase()).indexOf(originalScout.toLowerCase());
+            if (idx !== -1) {
+              list[idx] = scoutName;
+              matchItem[roleKey] = list.join(", ");
+            } else {
+              matchItem[roleKey] = scoutName;
+            }
+          } else {
+            matchItem[roleKey] = scoutName;
+          }
           localStorage.setItem(cacheKey, JSON.stringify(schedule));
           // Trigger UI updates
           if (window.scoutingUI && typeof window.scoutingUI.renderSchedulerDashboard === "function") {
