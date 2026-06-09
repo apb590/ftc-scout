@@ -664,98 +664,121 @@
         console.warn("[UI] Failed to parse cached admin config:", e);
       }
 
-      // Determine test matches list
-      let testMatchNums = [123, 999, 9999, 1234, 1000]; // default fallback
-      if (adminConfig.testMatchNumbers) {
-        testMatchNums = String(adminConfig.testMatchNumbers)
-          .split(",")
-          .map(m => parseInt(m.trim()))
-          .filter(m => !isNaN(m));
-      }
+      const isSimActive = adminConfig.simActive === true || adminConfig.simActive === 1 || String(adminConfig.simActive).toLowerCase() === "true";
+      
+      if (isSimActive) {
+        // Strict Simulation Mode Progress: run directly off simulation match threshold
+        latestMatch = parseInt(adminConfig.simMatchThreshold) || 1;
+      } else {
+        // Normal Mode Progress calculation
+        // Determine test matches list
+        let testMatchNums = [123, 999, 9999, 1234, 1000]; // default fallback
+        if (adminConfig.testMatchNumbers) {
+          testMatchNums = String(adminConfig.testMatchNumbers)
+            .split(",")
+            .map(m => parseInt(m.trim()))
+            .filter(m => !isNaN(m));
+        }
 
-      // Determine active selected event code
-      const currentEvent = (window.selectedEvent || localStorage.getItem("sticky_event") || "").trim().toLowerCase();
+        // Determine active selected event code
+        const currentEvent = (window.selectedEvent || localStorage.getItem("sticky_event") || "").trim().toLowerCase();
 
-      // Find max scheduled match number from the event qualification schedule
-      let maxScheduledMatch = 0;
-      let savedSchedule = null;
-      if (currentEvent) {
-        savedSchedule = localStorage.getItem(`qual_schedule_${currentEvent}`);
-      }
-      if (!savedSchedule) {
-        savedSchedule = localStorage.getItem("qual_schedule");
-      }
-      try {
-        if (savedSchedule) {
-          const scheduleObj = JSON.parse(savedSchedule);
-          if (scheduleObj) {
-            const keys = Object.keys(scheduleObj).map(k => parseInt(k)).filter(k => !isNaN(k));
-            if (keys.length > 0) {
-              maxScheduledMatch = Math.max(...keys);
+        // Find max scheduled match number from the event qualification schedule
+        let maxScheduledMatch = 0;
+        let savedSchedule = null;
+        if (currentEvent) {
+          savedSchedule = localStorage.getItem(`qual_schedule_${currentEvent}`);
+        }
+        if (!savedSchedule) {
+          savedSchedule = localStorage.getItem("qual_schedule");
+        }
+        try {
+          if (savedSchedule) {
+            const scheduleObj = JSON.parse(savedSchedule);
+            if (scheduleObj) {
+              const keys = Object.keys(scheduleObj).map(k => parseInt(k)).filter(k => !isNaN(k));
+              if (keys.length > 0) {
+                maxScheduledMatch = Math.max(...keys);
+              }
             }
           }
+        } catch (e) {
+          console.warn("[UI] Failed to parse qual schedule to find max match:", e);
         }
-      } catch (e) {
-        console.warn("[UI] Failed to parse qual schedule to find max match:", e);
-      }
 
-      // Progress validation checker helper
-      const isValidMatchNo = (m) => {
-        if (isNaN(m) || m <= 0) return false;
-        if (testMatchNums.includes(m)) return false;
-        if (maxScheduledMatch > 0 && m > maxScheduledMatch) return false;
-        return true;
-      };
+        // Progress validation checker helper
+        const isValidMatchNo = (m) => {
+          if (isNaN(m) || m <= 0) return false;
+          if (testMatchNums.includes(m)) return false;
+          if (maxScheduledMatch > 0 && m > maxScheduledMatch) return false;
+          return true;
+        };
 
-      // Collect progress candidates from all sources
-      const progressCandidates = [];
+        // Group IndexedDB records by match number for the current event
+        const matchRecordCounts = {};
+        try {
+          if (window.dbManager) {
+            const records = await window.dbManager.getAllRecords();
+            if (records && records.length > 0) {
+              records.forEach(r => {
+                const m = parseInt(r.matchno);
+                if (isValidMatchNo(m)) {
+                  // Only consider matches for the current event
+                  const recordEvent = String(r.scouted_event || r.upcoming_event || "").trim().toLowerCase();
+                  if (currentEvent && recordEvent && recordEvent !== currentEvent) return;
+                  
+                  // Ignore pre-event
+                  const isPre = r.is_preevent === 1 || r.is_preevent === "1" || r.is_preevent === true || String(r.is_preevent).toLowerCase() === "true";
+                  if (isPre) return;
 
-      // Candidate A: Simulated match threshold (if active)
-      const isSimActive = adminConfig.simActive === true || adminConfig.simActive === 1 || String(adminConfig.simActive).toLowerCase() === "true";
-      if (isSimActive && adminConfig.simMatchThreshold) {
-        const simMatch = parseInt(adminConfig.simMatchThreshold);
-        if (isValidMatchNo(simMatch)) {
-          progressCandidates.push(simMatch);
+                  matchRecordCounts[m] = (matchRecordCounts[m] || 0) + 1;
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[UI] Failed to query latest scouted match number from IndexedDB:", e);
         }
-      }
 
-      // Candidate B: All completed match numbers in IndexedDB records for the current event
-      try {
-        if (window.dbManager) {
-          const records = await window.dbManager.getAllRecords();
-          if (records && records.length > 0) {
-            records.forEach(r => {
-              const m = parseInt(r.matchno);
-              if (isValidMatchNo(m)) {
-                // Only consider matches for the current event
-                const recordEvent = String(r.scouted_event || r.upcoming_event || "").trim().toLowerCase();
-                if (currentEvent && recordEvent && recordEvent !== currentEvent) return;
-                
-                // Ignore pre-event
-                const isPre = r.is_preevent === 1 || r.is_preevent === "1" || r.is_preevent === true || String(r.is_preevent).toLowerCase() === "true";
-                if (isPre) return;
+        // Count expected scouts for each match from the scouting schedule
+        const matchExpectedCounts = {};
+        schedule.forEach(row => {
+          const m = parseInt(row.match);
+          if (isNaN(m)) return;
+          let count = 0;
+          if (row.red1Scout && row.red1Scout.trim()) count++;
+          if (row.red2Scout && row.red2Scout.trim()) count++;
+          if (row.blue1Scout && row.blue1Scout.trim()) count++;
+          if (row.blue2Scout && row.blue2Scout.trim()) count++;
+          matchExpectedCounts[m] = count;
+        });
 
-                progressCandidates.push(m);
-              }
-            });
+        // Collect valid candidates
+        const progressCandidates = [];
+
+        // Candidate B: Matches in IndexedDB that meet the "half of expected scouting" threshold
+        for (const mStr in matchRecordCounts) {
+          const m = parseInt(mStr);
+          const expected = matchExpectedCounts[m] || 4; // default to 4 if not in schedule
+          const actual = matchRecordCounts[m] || 0;
+          if (actual >= Math.ceil(expected / 2) && actual > 0) {
+            progressCandidates.push(m);
           }
         }
-      } catch (e) {
-        console.warn("[UI] Failed to query latest scouted match number from IndexedDB:", e);
-      }
 
-      // Candidate C: The current match input value `#matchno`
-      const matchInput = document.getElementById("matchno");
-      if (matchInput && matchInput.value) {
-        const inputVal = parseInt(matchInput.value);
-        if (isValidMatchNo(inputVal)) {
-          progressCandidates.push(inputVal);
+        // Candidate C: The current match input value `#matchno`
+        const matchInput = document.getElementById("matchno");
+        if (matchInput && matchInput.value) {
+          const inputVal = parseInt(matchInput.value);
+          if (isValidMatchNo(inputVal)) {
+            progressCandidates.push(inputVal);
+          }
         }
-      }
 
-      // Determine final latestMatch value as max of all valid candidates
-      if (progressCandidates.length > 0) {
-        latestMatch = Math.max(...progressCandidates);
+        // Determine final latestMatch value as max of all valid candidates
+        if (progressCandidates.length > 0) {
+          latestMatch = Math.max(...progressCandidates);
+        }
       }
 
       const displayMinMatch = latestMatch > 3 ? latestMatch - 3 : 1;
@@ -772,10 +795,12 @@
             return s === target || s === targetShort || target.startsWith(s) || s.startsWith(targetShort);
           });
         };
-        if (checkScout(row.red1Scout)) { role = "red1"; team = row.red1Team; }
-        else if (checkScout(row.red2Scout)) { role = "red2"; team = row.red2Team; }
-        else if (checkScout(row.blue1Scout)) { role = "blue1"; team = row.blue1Team; }
-        else if (checkScout(row.blue2Scout)) { role = "blue2"; team = row.blue2Team; }
+        
+        let scoutVal = "";
+        if (checkScout(row.red1Scout)) { role = "red1"; team = row.red1Team; scoutVal = row.red1Scout; }
+        else if (checkScout(row.red2Scout)) { role = "red2"; team = row.red2Team; scoutVal = row.red2Scout; }
+        else if (checkScout(row.blue1Scout)) { role = "blue1"; team = row.blue1Team; scoutVal = row.blue1Scout; }
+        else if (checkScout(row.blue2Scout)) { role = "blue2"; team = row.blue2Team; scoutVal = row.blue2Scout; }
 
         if (role) {
           assignments.push({
@@ -784,6 +809,7 @@
             role: role,
             team: team,
             alliance: role.startsWith("red") ? "Red" : "Blue",
+            subRequested: scoutVal.includes("(Sub Requested)"),
             rawRow: row
           });
         }
@@ -799,6 +825,57 @@
       }
 
       assignments.sort((a, b) => a.match - b.match);
+
+      // Scan for open sub requests in the schedule
+      const openSubRequests = [];
+      schedule.forEach(row => {
+        const checkRequest = (scoutField, role, team) => {
+          if (scoutField && scoutField.includes("(Sub Requested)")) {
+            const requester = scoutField.split("(")[0].trim();
+            openSubRequests.push({
+              match: parseInt(row.match),
+              field: row.field,
+              role: role,
+              team: team,
+              alliance: role.startsWith("red") ? "Red" : "Blue",
+              requester: requester,
+              rawScoutField: scoutField
+            });
+          }
+        };
+        checkRequest(row.red1Scout, "red1", row.red1Team);
+        checkRequest(row.red2Scout, "red2", row.red2Team);
+        checkRequest(row.blue1Scout, "blue1", row.blue1Team);
+        checkRequest(row.blue2Scout, "blue2", row.blue2Team);
+      });
+
+      // Filter eligible sub requests for the currently logged-in scouter S (selectedName)
+      const scoutScheduledMatches = new Set(assignments.map(a => a.match));
+      const scoutMatchFieldMap = {};
+      assignments.forEach(a => {
+        scoutMatchFieldMap[a.match] = a.field;
+      });
+
+      const eligibleSubRequests = openSubRequests.filter(req => {
+        if (selectedName.trim().toLowerCase() === req.requester.trim().toLowerCase()) {
+          return false;
+        }
+        
+        // Condition 1 (Other Field): Scout S is assigned adjacent match (M - 1 or M + 1) on the other field
+        const prevField = scoutMatchFieldMap[req.match - 1];
+        const isPrevOtherField = prevField && prevField !== req.field;
+        const nextField = scoutMatchFieldMap[req.match + 1];
+        const isNextOtherField = nextField && nextField !== req.field;
+        const isOtherFieldEligible = isPrevOtherField || isNextOtherField;
+        
+        // Condition 2 (Two Consecutive Matches Break): Scout S is free for at least two consecutive matches containing/adjacent to M
+        const freeM_minus_1 = !scoutScheduledMatches.has(req.match - 1);
+        const freeM = !scoutScheduledMatches.has(req.match);
+        const freeM_plus_1 = !scoutScheduledMatches.has(req.match + 1);
+        const isBreakEligible = (freeM_minus_1 && freeM) || (freeM && freeM_plus_1);
+        
+        return isOtherFieldEligible || isBreakEligible;
+      });
 
       // Identify field transitions within display range
       const transitions = [];
@@ -837,6 +914,32 @@
         `;
       }
 
+      if (eligibleSubRequests.length > 0) {
+        headerHtml += `
+          <div class="premium-card" style="background: rgba(99, 102, 241, 0.08); border: 1px solid var(--accent-color); padding: 12px; margin-bottom: 12px; border-radius: 8px; box-shadow: none;">
+            <div style="font-weight: bold; color: var(--accent-color); font-size: 0.85rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              🙋 Cover a Shift? (Open Sub Requests)
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+        `;
+        eligibleSubRequests.forEach(req => {
+          headerHtml += `
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-primary);">
+              <div>
+                <strong>${req.requester}</strong> requests a sub for <strong>Match ${req.match}</strong> (${req.field}, Team ${req.team}, ${req.alliance} Alliance)
+              </div>
+              <button type="button" class="btn-primary btn-opt-in-sub" data-match="${req.match}" data-role="${req.role}" data-requester="${req.rawScoutField}" style="padding: 4px 8px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none; margin-left: 10px;">
+                Opt In
+              </button>
+            </div>
+          `;
+        });
+        headerHtml += `
+            </div>
+          </div>
+        `;
+      }
+
       let html = "";
       let hiddenCount = 0;
 
@@ -861,13 +964,14 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
               <div style="font-size: 0.85rem; color: var(--text-secondary);">
                 Role: <strong>${assign.alliance} ${assign.role.endsWith("1") ? "1" : "2"}</strong>
+                ${assign.subRequested ? ` <span class="sync-badge pending" style="background:rgba(245, 158, 11, 0.15); color:var(--color-warning); font-size:0.7rem; padding: 2px 6px;">SUB REQUESTED</span>` : ""}
               </div>
               <div style="display: flex; gap: 8px;">
                 <button type="button" class="btn-primary btn-scout-now" data-match="${assign.match}" data-team="${assign.team}" data-alliance="${assign.alliance}" data-field="${assign.field}" style="padding: 4px 10px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none;">
                   Scout Match
                 </button>
-                <button type="button" class="btn-secondary btn-sub-scout" data-match="${assign.match}" data-role="${assign.role}" data-scouter="${selectedName}" style="padding: 4px 8px; font-size: 0.75rem; border-color: var(--color-warning); color: var(--color-warning); box-shadow: none; background: rgba(245, 158, 11, 0.05);">
-                  Sub In
+                <button type="button" class="btn-secondary btn-sub-scout" data-match="${assign.match}" data-role="${assign.role}" data-scouter="${selectedName}" ${assign.subRequested ? "disabled" : ""} style="padding: 4px 8px; font-size: 0.75rem; border-color: var(--color-warning); color: var(--color-warning); box-shadow: none; background: rgba(245, 158, 11, 0.05); ${assign.subRequested ? "opacity:0.5; cursor:not-allowed;" : ""}">
+                  ${assign.subRequested ? "Sub Pending" : "Sub In"}
                 </button>
               </div>
             </div>
@@ -925,6 +1029,22 @@
           this.triggerSubstitutionOverlay(match, role, originalScouter, scouters);
         });
       });
+
+      container.querySelectorAll(".btn-opt-in-sub").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const match = btn.getAttribute("data-match");
+          const role = btn.getAttribute("data-role");
+          const requesterField = btn.getAttribute("data-requester");
+          
+          const confirmOptIn = confirm(`Do you want to opt in and cover Match ${match} for ${requesterField.split("(")[0].trim()}?`);
+          if (!confirmOptIn) return;
+
+          if (window.feedbackManager) window.feedbackManager.trigger("click");
+          if (window.schedulerClient) {
+            await window.schedulerClient.postSubstitution(match, role, selectedName, requesterField);
+          }
+        });
+      });
     }
 
     /**
@@ -934,11 +1054,6 @@
       if (window.feedbackManager) window.feedbackManager.trigger("click");
       
       const availableScouts = scouters.filter(s => s.active && s.name.toLowerCase() !== originalScouter.toLowerCase());
-      
-      if (availableScouts.length === 0) {
-        alert("No other active scouters are currently available in Settings to substitute!");
-        return;
-      }
       
       const overlay = document.createElement("div");
       overlay.className = "overlay-modal active";
@@ -965,44 +1080,70 @@
       header.appendChild(closeBtn);
       content.appendChild(header);
       
-      const body = document.createElement("div");
-      body.style.margin = "16px 0";
-      body.style.textAlign = "left";
-      
-      const label = document.createElement("label");
-      label.className = "input-label";
-      label.textContent = `Transfer Match ${match} assignment from ${originalScouter} to:`;
-      
-      const select = document.createElement("select");
-      select.className = "input-control";
-      select.style.marginTop = "8px";
-      
-      availableScouts.forEach(s => {
-        const opt = document.createElement("option");
-        opt.value = s.name;
-        opt.textContent = s.name;
-        select.appendChild(opt);
-      });
-      
-      body.appendChild(label);
-      body.appendChild(select);
-      content.appendChild(body);
-      
-      const submitBtn = document.createElement("button");
-      submitBtn.className = "btn-primary";
-      submitBtn.textContent = "Confirm Substitution";
-      submitBtn.style.background = "var(--color-warning)";
-      submitBtn.addEventListener("click", async () => {
-        const newScout = select.value;
-        if (newScout) {
-          overlay.remove();
-          if (window.schedulerClient) {
-            await window.schedulerClient.postSubstitution(match, role, newScout, originalScouter);
+      if (availableScouts.length > 0) {
+        const body = document.createElement("div");
+        body.style.margin = "16px 0";
+        body.style.textAlign = "left";
+        
+        const label = document.createElement("label");
+        label.className = "input-label";
+        label.textContent = `Transfer Match ${match} assignment from ${originalScouter} to:`;
+        
+        const select = document.createElement("select");
+        select.className = "input-control";
+        select.style.marginTop = "8px";
+        
+        availableScouts.forEach(s => {
+          const opt = document.createElement("option");
+          opt.value = s.name;
+          opt.textContent = s.name;
+          select.appendChild(opt);
+        });
+        
+        body.appendChild(label);
+        body.appendChild(select);
+        content.appendChild(body);
+        
+        const submitBtn = document.createElement("button");
+        submitBtn.className = "btn-primary";
+        submitBtn.textContent = "Confirm Substitution";
+        submitBtn.style.background = "var(--color-warning)";
+        submitBtn.addEventListener("click", async () => {
+          const newScout = select.value;
+          if (newScout) {
+            overlay.remove();
+            if (window.schedulerClient) {
+              await window.schedulerClient.postSubstitution(match, role, newScout, originalScouter);
+            }
           }
+        });
+        content.appendChild(submitBtn);
+      } else {
+        const body = document.createElement("div");
+        body.style.margin = "16px 0";
+        body.style.fontSize = "0.9rem";
+        body.style.color = "var(--text-secondary)";
+        body.textContent = "No other active scouters are currently available in Settings to assign directly.";
+        content.appendChild(body);
+      }
+      
+      const openSubBtn = document.createElement("button");
+      openSubBtn.className = "btn-secondary";
+      openSubBtn.textContent = "Request Open Sub (Put on Board)";
+      openSubBtn.style.width = "100%";
+      openSubBtn.style.marginTop = "10px";
+      openSubBtn.style.borderColor = "var(--color-warning)";
+      openSubBtn.style.color = "var(--color-warning)";
+      openSubBtn.style.background = "rgba(245, 158, 11, 0.05)";
+      openSubBtn.style.boxShadow = "none";
+      openSubBtn.addEventListener("click", async () => {
+        overlay.remove();
+        if (window.schedulerClient) {
+          await window.schedulerClient.postSubstitution(match, role, `${originalScouter} (Sub Requested)`, originalScouter);
         }
       });
+      content.appendChild(openSubBtn);
       
-      content.appendChild(submitBtn);
       overlay.appendChild(content);
       document.body.appendChild(overlay);
     }
