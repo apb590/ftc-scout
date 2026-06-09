@@ -865,18 +865,20 @@
         checkRequest(row.blue2Scout, "blue2", row.blue2Team);
       });
 
-      // Filter eligible sub requests for the currently logged-in scouter S (selectedName)
+      // Compile active open sub requests (where match >= displayMinMatch)
+      const activeSubRequests = openSubRequests.filter(req => req.match >= displayMinMatch);
+      
       const scoutScheduledMatches = new Set(assignments.map(a => a.match));
       const scoutMatchFieldMap = {};
       assignments.forEach(a => {
         scoutMatchFieldMap[a.match] = a.field;
       });
-
-      const eligibleSubRequests = openSubRequests.filter(req => {
+      
+      const getEligibility = (req) => {
         if (selectedName.trim().toLowerCase() === req.requester.trim().toLowerCase()) {
-          return false;
+          return { eligible: false, reason: "Your Request" };
         }
-
+        
         // Determine shift of the requested match
         let reqShiftIdx = -1;
         for (let i = 0; i < shiftBlocks.length; i++) {
@@ -885,18 +887,25 @@
             break;
           }
         }
-
+        
         // Check active / shift status for this block
         if (scouters && scouters.length > 0) {
           const targetScout = scouters.find(s => s.name.toLowerCase() === selectedName.toLowerCase());
-          if (!targetScout || !targetScout.active) return false;
+          if (!targetScout || !targetScout.active) {
+            return { eligible: false, reason: "Inactive" };
+          }
           
           if (reqShiftIdx !== -1) {
             const shiftVal = targetScout.shifts ? String(targetScout.shifts[reqShiftIdx]).trim().toLowerCase() : "unavailable";
             if (shiftVal !== "scouter" && shiftVal !== "floater") {
-              return false;
+              return { eligible: false, reason: "Shift Off" };
             }
           }
+        }
+        
+        // If the scout is assigned to the SAME MATCH on any field/role, they are busy!
+        if (scoutScheduledMatches.has(req.match)) {
+          return { eligible: false, reason: "Busy Scouting" };
         }
         
         // Condition 1 (Other Field): Scout S is assigned adjacent match (M - 1 or M + 1) on the other field
@@ -912,8 +921,11 @@
         const freeM_plus_1 = !scoutScheduledMatches.has(req.match + 1);
         const isBreakEligible = (freeM_minus_1 && freeM) || (freeM && freeM_plus_1);
         
-        return isOtherFieldEligible || isBreakEligible;
-      });
+        if (isOtherFieldEligible || isBreakEligible) {
+          return { eligible: true };
+        }
+        return { eligible: false, reason: "No Adjacent/Break" };
+      };
 
       // Identify field transitions within display range
       const transitions = [];
@@ -965,7 +977,7 @@
         `;
       }
 
-      if (eligibleSubRequests.length > 0) {
+      if (activeSubRequests.length > 0) {
         headerHtml += `
           <div class="premium-card" style="background: rgba(99, 102, 241, 0.08); border: 1px solid var(--accent-color); padding: 12px; margin-bottom: 12px; border-radius: 8px; box-shadow: none;">
             <div style="font-weight: bold; color: var(--accent-color); font-size: 0.85rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
@@ -973,15 +985,29 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
         `;
-        eligibleSubRequests.forEach(req => {
+        activeSubRequests.forEach(req => {
+          const elig = getEligibility(req);
+          let actionHtml = "";
+          if (elig.eligible) {
+            actionHtml = `
+              <button type="button" class="btn-primary btn-opt-in-sub" data-match="${req.match}" data-role="${req.role}" data-requester="${req.rawScoutField}" style="padding: 4px 8px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none; margin-left: 10px;">
+                Opt In
+              </button>
+            `;
+          } else {
+            actionHtml = `
+              <span style="font-size: 0.75rem; color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 3px 6px; border-radius: 4px; font-weight: bold; margin-left: 10px; white-space: nowrap;">
+                ${elig.reason}
+              </span>
+            `;
+          }
+          
           headerHtml += `
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-primary);">
               <div>
                 <strong>${req.requester}</strong> requests a sub for <strong>Match ${req.match}</strong> (${req.field}, Team ${req.team}, ${req.alliance} Alliance)
               </div>
-              <button type="button" class="btn-primary btn-opt-in-sub" data-match="${req.match}" data-role="${req.role}" data-requester="${req.rawScoutField}" style="padding: 4px 8px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none; margin-left: 10px;">
-                Opt In
-              </button>
+              ${actionHtml}
             </div>
           `;
         });
