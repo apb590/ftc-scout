@@ -604,11 +604,13 @@
 
       let scouters = [];
       let schedule = [];
+      let shiftBlocks = [];
 
       try {
         if (scouterConfigCached) {
           const config = JSON.parse(scouterConfigCached);
           scouters = config.scouters || [];
+          shiftBlocks = config.shiftBlocks || [];
           window.headScoutName = config.headScout || "Alden";
         }
       } catch (e) {
@@ -815,13 +817,24 @@
         }
       });
 
-      if (assignments.length === 0) {
-        container.innerHTML = `
-          <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 12px;">
-            No assignments found for ${selectedName} at this event.
-          </div>
-        `;
-        return;
+      // Check if the current scout is a floater for the current shift block
+      let currentShiftIdx = -1;
+      let currentShiftName = "";
+      for (let i = 0; i < shiftBlocks.length; i++) {
+        const s = shiftBlocks[i];
+        if (latestMatch >= s.startMatch && latestMatch <= s.endMatch) {
+          currentShiftIdx = i;
+          currentShiftName = s.name;
+          break;
+        }
+      }
+
+      let isFloaterCurrentShift = false;
+      if (currentShiftIdx !== -1 && scouters.length > 0) {
+        const targetScout = scouters.find(s => s.name.toLowerCase() === selectedName.toLowerCase());
+        if (targetScout && targetScout.shifts && targetScout.shifts[currentShiftIdx] === "Floater") {
+          isFloaterCurrentShift = true;
+        }
       }
 
       assignments.sort((a, b) => a.match - b.match);
@@ -860,6 +873,28 @@
         if (selectedName.trim().toLowerCase() === req.requester.trim().toLowerCase()) {
           return false;
         }
+
+        // Determine shift of the requested match
+        let reqShiftIdx = -1;
+        for (let i = 0; i < shiftBlocks.length; i++) {
+          if (req.match >= shiftBlocks[i].startMatch && req.match <= shiftBlocks[i].endMatch) {
+            reqShiftIdx = i;
+            break;
+          }
+        }
+
+        // Check active / shift status for this block
+        if (scouters && scouters.length > 0) {
+          const targetScout = scouters.find(s => s.name.toLowerCase() === selectedName.toLowerCase());
+          if (!targetScout || !targetScout.active) return false;
+          
+          if (reqShiftIdx !== -1) {
+            const shiftVal = targetScout.shifts ? targetScout.shifts[reqShiftIdx] : "Unavailable";
+            if (shiftVal !== "Scouter" && shiftVal !== "Floater") {
+              return false;
+            }
+          }
+        }
         
         // Condition 1 (Other Field): Scout S is assigned adjacent match (M - 1 or M + 1) on the other field
         const prevField = scoutMatchFieldMap[req.match - 1];
@@ -895,6 +930,19 @@
       }
 
       let headerHtml = "";
+      if (isFloaterCurrentShift) {
+        headerHtml += `
+          <div class="premium-card" style="background: rgba(99, 102, 241, 0.08); border: 1px solid var(--accent-color); padding: 12px; margin-bottom: 12px; border-radius: 8px; box-shadow: none;">
+            <div style="font-weight: bold; color: var(--accent-color); font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+              📣 On-Demand Floater
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-primary); margin-top: 4px;">
+              You are the designated substitute floater for <strong>${currentShiftName}</strong>. Tap 'Opt In' on any open request below to cover a shift!
+            </div>
+          </div>
+        `;
+      }
+
       if (transitions.length > 0) {
         headerHtml += `
           <div class="premium-card" style="background: rgba(245, 158, 11, 0.08); border: 1px solid var(--color-warning); padding: 12px; margin-bottom: 12px; border-radius: 8px; box-shadow: none;">
@@ -943,41 +991,49 @@
       let html = "";
       let hiddenCount = 0;
 
-      assignments.forEach(assign => {
-        if (assign.match < displayMinMatch) {
-          hiddenCount++;
-          return;
-        }
-
-        const allianceClass = assign.alliance.toLowerCase();
-        const allianceDotClass = allianceClass === "red" ? "red" : "blue";
-        
-        html += `
-          <div class="history-item schedule-item" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px; margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div class="history-team" style="font-weight: bold; font-family: 'Outfit';">
-                <span class="alliance-dot ${allianceDotClass}"></span>
-                Match ${assign.match} &bull; Team ${assign.team}
-              </div>
-              <span class="sync-badge" style="background: var(--card-border); color: var(--text-primary); font-size: 0.75rem;">${assign.field}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-              <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                Role: <strong>${assign.alliance} ${assign.role.endsWith("1") ? "1" : "2"}</strong>
-                ${assign.subRequested ? ` <span class="sync-badge pending" style="background:rgba(245, 158, 11, 0.15); color:var(--color-warning); font-size:0.7rem; padding: 2px 6px;">SUB REQUESTED</span>` : ""}
-              </div>
-              <div style="display: flex; gap: 8px;">
-                <button type="button" class="btn-primary btn-scout-now" data-match="${assign.match}" data-team="${assign.team}" data-alliance="${assign.alliance}" data-field="${assign.field}" style="padding: 4px 10px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none;">
-                  Scout Match
-                </button>
-                <button type="button" class="btn-secondary btn-sub-scout" data-match="${assign.match}" data-role="${assign.role}" data-scouter="${selectedName}" ${assign.subRequested ? "disabled" : ""} style="padding: 4px 8px; font-size: 0.75rem; border-color: var(--color-warning); color: var(--color-warning); box-shadow: none; background: rgba(245, 158, 11, 0.05); ${assign.subRequested ? "opacity:0.5; cursor:not-allowed;" : ""}">
-                  ${assign.subRequested ? "Sub Pending" : "Sub In"}
-                </button>
-              </div>
-            </div>
+      if (assignments.length === 0) {
+        html = `
+          <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 16px; background: rgba(255,255,255,0.01); border: 1px dashed var(--card-border); border-radius: 8px;">
+            No scheduled match assignments for this shift.
           </div>
         `;
-      });
+      } else {
+        assignments.forEach(assign => {
+          if (assign.match < displayMinMatch) {
+            hiddenCount++;
+            return;
+          }
+
+          const allianceClass = assign.alliance.toLowerCase();
+          const allianceDotClass = allianceClass === "red" ? "red" : "blue";
+          
+          html += `
+            <div class="history-item schedule-item" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="history-team" style="font-weight: bold; font-family: 'Outfit';">
+                  <span class="alliance-dot ${allianceDotClass}"></span>
+                  Match ${assign.match} &bull; Team ${assign.team}
+                </div>
+                <span class="sync-badge" style="background: var(--card-border); color: var(--text-primary); font-size: 0.75rem;">${assign.field}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                  Role: <strong>${assign.alliance} ${assign.role.endsWith("1") ? "1" : "2"}</strong>
+                  ${assign.subRequested ? ` <span class="sync-badge pending" style="background:rgba(245, 158, 11, 0.15); color:var(--color-warning); font-size:0.7rem; padding: 2px 6px;">SUB REQUESTED</span>` : ""}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn-primary btn-scout-now" data-match="${assign.match}" data-team="${assign.team}" data-alliance="${assign.alliance}" data-field="${assign.field}" style="padding: 4px 10px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none;">
+                    Scout Match
+                  </button>
+                  <button type="button" class="btn-secondary btn-sub-scout" data-match="${assign.match}" data-role="${assign.role}" data-scouter="${selectedName}" ${assign.subRequested ? "disabled" : ""} style="padding: 4px 8px; font-size: 0.75rem; border-color: var(--color-warning); color: var(--color-warning); box-shadow: none; background: rgba(245, 158, 11, 0.05); ${assign.subRequested ? "opacity:0.5; cursor:not-allowed;" : ""}">
+                    ${assign.subRequested ? "Sub Pending" : "Request Sub"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
 
       if (hiddenCount > 0) {
         html = `
@@ -1210,14 +1266,27 @@
               ">${activeText}</button>
             </div>
             
-            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-top: 6px; border-top: 1px dashed var(--card-border); padding-top: 8px;">
               ${[1, 2, 3, 4].map(sNum => {
-                const shiftChecked = scout.shifts && scout.shifts[sNum - 1] === true ? "checked" : "";
+                const status = scout.shifts ? scout.shifts[sNum - 1] : "Unavailable";
+                
+                const isOff = status === "Unavailable" || status === false || String(status).toUpperCase() === "FALSE";
+                const isScout = status === "Scouter" || status === true || String(status).toUpperCase() === "TRUE";
+                const isFloat = status === "Floater";
+
+                const activeOffStyle = isOff ? "background: var(--card-border); color: var(--text-primary); font-weight: bold;" : "background: transparent; color: var(--text-secondary);";
+                const activeScoutStyle = isScout ? "background: var(--accent-color); color: #ffffff; font-weight: bold;" : "background: transparent; color: var(--text-secondary);";
+                const activeFloatStyle = isFloat ? "background: var(--color-warning); color: #ffffff; font-weight: bold;" : "background: transparent; color: var(--text-secondary);";
+
                 return `
-                  <label style="display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--text-secondary); cursor: pointer; user-select: none;">
-                    <input type="checkbox" class="scout-shift-checkbox" data-name="${scout.name}" data-shift="${sNum - 1}" ${shiftChecked} style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--accent-color);">
-                    S${sNum}
-                  </label>
+                  <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 0.7rem; color: var(--text-secondary); font-weight: bold;">Shift ${sNum}</span>
+                    <div class="segmented-container" style="display: flex; background: rgba(0,0,0,0.2); border: 1px solid var(--card-border); border-radius: 4px; padding: 2px; gap: 2px; width: 100%;">
+                      <button type="button" class="btn-shift-state" data-name="${scout.name}" data-shift="${sNum - 1}" data-value="Unavailable" style="flex: 1; text-align: center; border: none; font-size: 0.65rem; padding: 3px 0; border-radius: 2px; cursor: pointer; transition: all 0.15s; ${activeOffStyle}">Off</button>
+                      <button type="button" class="btn-shift-state" data-name="${scout.name}" data-shift="${sNum - 1}" data-value="Scouter" style="flex: 1; text-align: center; border: none; font-size: 0.65rem; padding: 3px 0; border-radius: 2px; cursor: pointer; transition: all 0.15s; ${activeScoutStyle}">Scout</button>
+                      <button type="button" class="btn-shift-state" data-name="${scout.name}" data-shift="${sNum - 1}" data-value="Floater" style="flex: 1; text-align: center; border: none; font-size: 0.65rem; padding: 3px 0; border-radius: 2px; cursor: pointer; transition: all 0.15s; ${activeFloatStyle}">Float</button>
+                    </div>
+                  </div>
                 `;
               }).join("")}
             </div>
@@ -1241,18 +1310,18 @@
         });
       });
 
-      listContainer.querySelectorAll(".scout-shift-checkbox").forEach(box => {
-        box.addEventListener("change", async () => {
-          const name = box.getAttribute("data-name");
-          const shiftIdx = parseInt(box.getAttribute("data-shift"));
-          const checked = box.checked;
+      listContainer.querySelectorAll(".btn-shift-state").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const name = btn.getAttribute("data-name");
+          const shiftIdx = parseInt(btn.getAttribute("data-shift"));
+          const val = btn.getAttribute("data-value");
           
           if (window.feedbackManager) window.feedbackManager.trigger("click");
           
           const targetScout = scouters.find(s => s.name === name);
           if (targetScout && window.schedulerClient) {
             const shifts = [...targetScout.shifts];
-            shifts[shiftIdx] = checked;
+            shifts[shiftIdx] = val;
             await window.schedulerClient.postScouterToggles(name, targetScout.active, shifts);
           }
         });
