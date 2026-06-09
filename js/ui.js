@@ -832,8 +832,11 @@
       let isFloaterCurrentShift = false;
       if (currentShiftIdx !== -1 && scouters.length > 0) {
         const targetScout = scouters.find(s => s.name.toLowerCase() === selectedName.toLowerCase());
-        if (targetScout && targetScout.shifts && targetScout.shifts[currentShiftIdx] === "Floater") {
-          isFloaterCurrentShift = true;
+        if (targetScout && targetScout.shifts) {
+          const shiftVal = String(targetScout.shifts[currentShiftIdx] || "Unavailable").trim().toLowerCase();
+          if (shiftVal === "floater") {
+            isFloaterCurrentShift = true;
+          }
         }
       }
 
@@ -889,8 +892,8 @@
           if (!targetScout || !targetScout.active) return false;
           
           if (reqShiftIdx !== -1) {
-            const shiftVal = targetScout.shifts ? targetScout.shifts[reqShiftIdx] : "Unavailable";
-            if (shiftVal !== "Scouter" && shiftVal !== "Floater") {
+            const shiftVal = targetScout.shifts ? String(targetScout.shifts[reqShiftIdx]).trim().toLowerCase() : "unavailable";
+            if (shiftVal !== "scouter" && shiftVal !== "floater") {
               return false;
             }
           }
@@ -1268,11 +1271,12 @@
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-top: 6px; border-top: 1px dashed var(--card-border); padding-top: 8px;">
               ${[1, 2, 3, 4].map(sNum => {
-                const status = scout.shifts ? scout.shifts[sNum - 1] : "Unavailable";
+                const status = scout.shifts ? String(scout.shifts[sNum - 1] || "Unavailable").trim() : "Unavailable";
+                const statusLower = status.toLowerCase();
                 
-                const isOff = status === "Unavailable" || status === false || String(status).toUpperCase() === "FALSE";
-                const isScout = status === "Scouter" || status === true || String(status).toUpperCase() === "TRUE";
-                const isFloat = status === "Floater";
+                const isOff = statusLower === "unavailable" || statusLower === "false" || !status || statusLower === "off";
+                const isScout = statusLower === "scouter" || statusLower === "true";
+                const isFloat = statusLower === "floater";
 
                 const activeOffStyle = isOff ? "background: var(--card-border); color: var(--text-primary); font-weight: bold;" : "background: transparent; color: var(--text-secondary);";
                 const activeScoutStyle = isScout ? "background: var(--accent-color); color: #ffffff; font-weight: bold;" : "background: transparent; color: var(--text-secondary);";
