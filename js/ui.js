@@ -594,7 +594,7 @@
     /**
      * Renders the logged-in scouter's personalized timetable and dropdown filter
      */
-    renderSchedulerDashboard() {
+    async renderSchedulerDashboard() {
       const filterSelect = document.getElementById("schedule-scouter-filter");
       const container = document.getElementById("schedule-timetable-container");
       if (!container) return;
@@ -651,6 +651,34 @@
         return;
       }
 
+      // Determine latest actual match completed based on IndexedDB and current setup input
+      let latestMatch = 0;
+      try {
+        if (window.dbManager) {
+          const records = await window.dbManager.getAllRecords();
+          if (records && records.length > 0) {
+            records.forEach(r => {
+              const m = parseInt(r.matchno);
+              if (!isNaN(m) && m > latestMatch) {
+                latestMatch = m;
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[UI] Failed to query latest scouted match number:", e);
+      }
+
+      const matchInput = document.getElementById("matchno");
+      if (matchInput && matchInput.value) {
+        const inputVal = parseInt(matchInput.value);
+        if (!isNaN(inputVal) && inputVal > latestMatch) {
+          latestMatch = inputVal;
+        }
+      }
+
+      const displayMinMatch = latestMatch > 3 ? latestMatch - 3 : 1;
+
       const assignments = [];
       schedule.forEach(row => {
         let role = "";
@@ -691,18 +719,20 @@
 
       assignments.sort((a, b) => a.match - b.match);
 
-      // Identify field transitions
+      // Identify field transitions within display range
       const transitions = [];
       for (let i = 1; i < assignments.length; i++) {
         const prev = assignments[i - 1];
         const curr = assignments[i];
         if (prev.field !== curr.field) {
-          transitions.push({
-            fromMatch: prev.match,
-            toMatch: curr.match,
-            fromField: prev.field,
-            toField: curr.field
-          });
+          if (curr.match >= displayMinMatch) {
+            transitions.push({
+              fromMatch: prev.match,
+              toMatch: curr.match,
+              fromField: prev.field,
+              toField: curr.field
+            });
+          }
         }
       }
 
@@ -727,7 +757,14 @@
       }
 
       let html = "";
+      let hiddenCount = 0;
+
       assignments.forEach(assign => {
+        if (assign.match < displayMinMatch) {
+          hiddenCount++;
+          return;
+        }
+
         const allianceClass = assign.alliance.toLowerCase();
         const allianceDotClass = allianceClass === "red" ? "red" : "blue";
         
@@ -756,6 +793,14 @@
           </div>
         `;
       });
+
+      if (hiddenCount > 0) {
+        html = `
+          <div style="font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-bottom: 12px; padding: 6px; background: rgba(255,255,255,0.02); border-radius: var(--radius-sm); border: 1px dashed var(--card-border);">
+            💡 Hidden ${hiddenCount} past matches. Showing from Match ${displayMinMatch} onwards.
+          </div>
+        ` + html;
+      }
 
       container.innerHTML = headerHtml + html;
 
