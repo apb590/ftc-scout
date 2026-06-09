@@ -150,6 +150,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (res.ok) {
               const config = await res.json();
               if (config) {
+                localStorage.setItem("admin_config", JSON.stringify(config));
                 const isSimActive = config.simActive === true || config.simActive === 1 || String(config.simActive).toLowerCase() === "true";
                 window.activeLiveEventCode = isSimActive ? config.simTargetEvent : config.targetEvent;
                 localStorage.setItem("active_live_event_code", window.activeLiveEventCode);

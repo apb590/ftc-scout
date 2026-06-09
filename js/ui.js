@@ -651,29 +651,73 @@
         return;
       }
 
-      // Determine latest actual match completed based on IndexedDB and current setup input
+      // Determine latest actual match completed based on IndexedDB, configuration settings and current setup input
       let latestMatch = 0;
+      
+      const adminConfigCached = localStorage.getItem("admin_config");
+      let adminConfig = {};
       try {
-        if (window.dbManager) {
-          const records = await window.dbManager.getAllRecords();
-          if (records && records.length > 0) {
-            records.forEach(r => {
-              const m = parseInt(r.matchno);
-              if (!isNaN(m) && m > latestMatch) {
-                latestMatch = m;
-              }
-            });
-          }
+        if (adminConfigCached) {
+          adminConfig = JSON.parse(adminConfigCached) || {};
         }
       } catch (e) {
-        console.warn("[UI] Failed to query latest scouted match number:", e);
+        console.warn("[UI] Failed to parse cached admin config:", e);
       }
 
-      const matchInput = document.getElementById("matchno");
-      if (matchInput && matchInput.value) {
-        const inputVal = parseInt(matchInput.value);
-        if (!isNaN(inputVal) && inputVal > latestMatch) {
-          latestMatch = inputVal;
+      const isSimActive = adminConfig.simActive === true || adminConfig.simActive === 1 || String(adminConfig.simActive).toLowerCase() === "true";
+      
+      if (isSimActive) {
+        latestMatch = parseInt(adminConfig.simMatchThreshold) || 1;
+      } else {
+        // Query IndexedDB for latest match of the current event (excluding test matches)
+        let testMatchNums = [123, 999, 9999, 1234, 1000]; // default fallback
+        if (adminConfig.testMatchNumbers) {
+          testMatchNums = String(adminConfig.testMatchNumbers)
+            .split(",")
+            .map(m => parseInt(m.trim()))
+            .filter(m => !isNaN(m));
+        }
+
+        const currentEvent = (window.selectedEvent || localStorage.getItem("sticky_event") || "").trim().toLowerCase();
+
+        try {
+          if (window.dbManager) {
+            const records = await window.dbManager.getAllRecords();
+            if (records && records.length > 0) {
+              records.forEach(r => {
+                const m = parseInt(r.matchno);
+                if (!isNaN(m)) {
+                  // Ignore test match numbers
+                  if (testMatchNums.includes(m)) return;
+                  
+                  // Only consider matches for the current event
+                  const recordEvent = String(r.scouted_event || r.upcoming_event || "").trim().toLowerCase();
+                  if (currentEvent && recordEvent && recordEvent !== currentEvent) return;
+                  
+                  // Ignore pre-event
+                  const isPre = r.is_preevent === 1 || r.is_preevent === "1" || r.is_preevent === true || String(r.is_preevent).toLowerCase() === "true";
+                  if (isPre) return;
+
+                  if (m > latestMatch) {
+                    latestMatch = m;
+                  }
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[UI] Failed to query latest scouted match number from IndexedDB:", e);
+        }
+
+        // Also check if current match input is higher than found so far (ignoring test matches)
+        const matchInput = document.getElementById("matchno");
+        if (matchInput && matchInput.value) {
+          const inputVal = parseInt(matchInput.value);
+          if (!isNaN(inputVal) && !testMatchNums.includes(inputVal)) {
+            if (inputVal > latestMatch) {
+              latestMatch = inputVal;
+            }
+          }
         }
       }
 
