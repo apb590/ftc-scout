@@ -315,9 +315,11 @@ class ScoutingSyncManager {
         const freshData = await response.json();
         const freshStr = JSON.stringify(freshData);
         
-        // Zero-caching rule for schedule if empty
-        if (cacheKey.includes("qual_schedule") && (!freshData || Object.keys(freshData).length === 0)) {
-          console.log("[Sync] SWR Qual schedule is empty, skipping caching.");
+        // Zero-caching rule: don't overwrite good cached schedules with empty responses
+        const isScheduleKey = cacheKey.includes("qual_schedule") || cacheKey.includes("scouting_schedule");
+        const isEmptyResponse = !freshData || (Array.isArray(freshData) && freshData.length === 0) || (typeof freshData === "object" && !Array.isArray(freshData) && Object.keys(freshData).length === 0);
+        if (isScheduleKey && isEmptyResponse && cached) {
+          console.log(`[Sync] SWR ${cacheKey}: server returned empty, preserving existing cache.`);
           return;
         }
 

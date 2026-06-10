@@ -539,14 +539,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function handlePreEventSelectionUpdates() {
     const selectedTeam = preeventTeamSelect ? preeventTeamSelect.value : "";
-    preeventMatchInput.value = "0"; // Pre-event is always match 0
+    // Don't force match to 0 — let the scouter pick the match they want to review
+    if (preeventMatchInput) preeventMatchInput.value = "";
     if (preeventAllianceContainer) preeventAllianceContainer.style.display = selectedTeam ? "flex" : "none";
     preeventLinksContainer.style.display = selectedTeam ? "block" : "none";
 
     if (selectedTeam) {
-      const matchnoHidden = document.getElementById("matchno");
       const teamnoHidden = document.getElementById("teamno");
-      if (matchnoHidden) matchnoHidden.value = "0";
       if (teamnoHidden) teamnoHidden.value = selectedTeam;
     }
 
@@ -608,6 +607,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (preeventTeamSelect) {
     preeventTeamSelect.addEventListener("change", handlePreEventSelectionUpdates);
+  }
+
+  // Sync pre-event match input to the hidden matchno field used for form submission
+  if (preeventMatchInput) {
+    preeventMatchInput.addEventListener("input", () => {
+      const matchnoHidden = document.getElementById("matchno");
+      if (matchnoHidden) matchnoHidden.value = preeventMatchInput.value || "";
+      if (window.formManager) window.formManager.triggerAutosave();
+    });
   }
 
   if (preeventAllianceRed) {
