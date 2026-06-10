@@ -971,7 +971,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Autofill logic from Scouting Schedule
         const scouterNameVal = usernameInput ? usernameInput.value.trim().toLowerCase() : "";
         if (scouterNameVal) {
-          const scheduleCached = localStorage.getItem("scouting_schedule");
+          const eventCode = window.selectedEvent || localStorage.getItem("sticky_event") || "";
+          const cacheKey = eventCode ? `scouting_schedule_${eventCode}` : "scouting_schedule";
+          const scheduleCached = localStorage.getItem(cacheKey);
           if (scheduleCached) {
             try {
               const scouterSchedule = JSON.parse(scheduleCached) || [];

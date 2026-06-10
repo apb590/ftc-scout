@@ -5,7 +5,7 @@
 class ScoutingDatabase {
   constructor() {
     this.dbName = "FTCDecodeScoutingDB";
-    this.dbVersion = 1;
+    this.dbVersion = 2;
     this.db = null;
     this.initPromise = null;
   }
@@ -34,6 +34,11 @@ class ScoutingDatabase {
           const recordStore = db.createObjectStore("records", { keyPath: "id" });
           recordStore.createIndex("synced", "synced", { unique: false });
           recordStore.createIndex("matchno", "matchno", { unique: false });
+        }
+
+        // Store 3: preevent - holds pre-event data per event code
+        if (!db.objectStoreNames.contains("preevent")) {
+          db.createObjectStore("preevent", { keyPath: "eventCode" });
         }
       };
 
@@ -204,6 +209,49 @@ class ScoutingDatabase {
       };
 
       getRequest.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  /**
+   * Saves pre-event data locally per event code
+   */
+  async savePreEventData(eventCode, data) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction("preevent", "readwrite");
+      const store = transaction.objectStore("preevent");
+      
+      const payload = {
+        eventCode: eventCode,
+        timestamp: Date.now(),
+        data: data
+      };
+
+      const request = store.put(payload);
+
+      request.onsuccess = () => resolve(true);
+      request.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  /**
+   * Retrieves pre-event data for an event code
+   */
+  async getPreEventData(eventCode) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction("preevent", "readonly");
+      const store = transaction.objectStore("preevent");
+      const request = store.get(eventCode);
+
+      request.onsuccess = () => {
+        if (request.result) {
+          resolve(request.result.data);
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = (e) => reject(e.target.error);
     });
   }
 }

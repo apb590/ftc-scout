@@ -599,8 +599,12 @@
       const container = document.getElementById("schedule-timetable-container");
       if (!container) return;
 
-      const scouterConfigCached = localStorage.getItem("scouter_config");
-      const scheduleCached = localStorage.getItem("scouting_schedule");
+      const eventCode = window.selectedEvent || localStorage.getItem("sticky_event") || "";
+      const scouterConfigKey = eventCode ? `scouter_config_${eventCode}` : "scouter_config";
+      const scheduleKey = eventCode ? `scouting_schedule_${eventCode}` : "scouting_schedule";
+
+      const scouterConfigCached = localStorage.getItem(scouterConfigKey);
+      const scheduleCached = localStorage.getItem(scheduleKey);
 
       let scouters = [];
       let schedule = [];
@@ -1240,7 +1244,9 @@
       const listContainer = document.getElementById("scouter-availability-settings-list");
       if (!listContainer) return;
 
-      const scouterConfigCached = localStorage.getItem("scouter_config");
+      const eventCode = window.selectedEvent || localStorage.getItem("sticky_event") || "";
+      const scouterConfigKey = eventCode ? `scouter_config_${eventCode}` : "scouter_config";
+      const scouterConfigCached = localStorage.getItem(scouterConfigKey);
       let scouters = [];
       
       try {

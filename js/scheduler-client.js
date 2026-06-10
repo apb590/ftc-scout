@@ -28,7 +28,7 @@ class ScoutingSchedulerClient {
     const dataUrl = eventCode
       ? `${endpoint}?action=getScouterConfig&event=${eventCode}`
       : `${endpoint}?action=getScouterConfig`;
-    const cacheKey = "scouter_config";
+    const cacheKey = eventCode ? `scouter_config_${eventCode}` : "scouter_config";
 
     await window.syncManager.executeSWR(cacheKey, dataUrl, (data, isStale) => {
       if (data && data.headScout) {
@@ -45,8 +45,11 @@ class ScoutingSchedulerClient {
    */
   async fetchScoutingSchedule(updateCallback = null) {
     const endpoint = this.getEndpoint();
-    const dataUrl = `${endpoint}?action=getScoutingSchedule`;
-    const cacheKey = "scouting_schedule";
+    const eventCode = window.selectedEvent || localStorage.getItem("sticky_event") || "";
+    const dataUrl = eventCode
+      ? `${endpoint}?action=getScoutingSchedule&event=${eventCode}`
+      : `${endpoint}?action=getScoutingSchedule`;
+    const cacheKey = eventCode ? `scouting_schedule_${eventCode}` : "scouting_schedule";
 
     await window.syncManager.executeSWR(cacheKey, dataUrl, (data, isStale) => {
       if (updateCallback) {
@@ -68,7 +71,8 @@ class ScoutingSchedulerClient {
     };
 
     // Update local cached schedule immediately so the user doesn't see a delay
-    const cacheKey = "scouting_schedule";
+    const eventCode = window.selectedEvent || localStorage.getItem("sticky_event") || "";
+    const cacheKey = eventCode ? `scouting_schedule_${eventCode}` : "scouting_schedule";
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
@@ -147,7 +151,7 @@ class ScoutingSchedulerClient {
     };
 
     // Update local scouter_config cache immediately
-    const cacheKey = "scouter_config";
+    const cacheKey = eventCode ? `scouter_config_${eventCode}` : "scouter_config";
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {

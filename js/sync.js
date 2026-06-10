@@ -391,26 +391,41 @@ class ScoutingSyncManager {
    */
   async fetchPreEventTeamList(eventCode, updateCallback = null) {
     if (!eventCode) return null;
-    const cacheKey = `preevent_data_${eventCode}`;
     
-    // Dynamically hit the Google Apps Script webhook for the specific event
+    let resolvedData = null;
+    try {
+      // 1. Look in IndexedDB first
+      resolvedData = await window.dbManager.getPreEventData(eventCode);
+      if (resolvedData && updateCallback) {
+        updateCallback(resolvedData, true); // true = stale/cached
+      }
+    } catch (e) {
+      console.warn("[Sync] Failed to read pre-event data from IndexedDB:", e);
+    }
+    
+    // 2. Perform background fetch
     const endpoint = this.getSyncEndpoint();
     const dataUrl = `${endpoint}?action=getPreEventData&event=${eventCode}`;
     
-    let resolvedData = null;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        resolvedData = JSON.parse(cached);
-      } catch (e) {}
-    }
-    
-    await this.executeSWR(cacheKey, dataUrl, (data, isStale) => {
-      resolvedData = data;
-      if (updateCallback) {
-        updateCallback(data, isStale);
+    try {
+      const response = await fetch(dataUrl, { mode: 'cors', redirect: 'follow' });
+      if (response.ok) {
+        const freshData = await response.json();
+        
+        // Save to IndexedDB
+        await window.dbManager.savePreEventData(eventCode, freshData);
+        resolvedData = freshData;
+        
+        if (updateCallback) {
+          updateCallback(freshData, false); // false = fresh
+        }
       }
-    });
+    } catch (err) {
+      console.warn(`[Sync] Background pre-event data fetch failed for ${dataUrl}:`, err);
+      if (navigator.onLine && window.showToast) {
+        window.showToast("Network fetch failed. Please check your Web App URL in settings.", "warning");
+      }
+    }
     
     return resolvedData;
   }
