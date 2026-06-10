@@ -677,9 +677,115 @@
         return;
       }
 
-      // Determine latest actual match completed based on IndexedDB, configuration settings and current setup input
+      // Pre-event research mode handling
+      if (window.activeMode === "research") {
+        const data = window.preEventData;
+        if (!data || !data.assignments || data.assignments.length === 0) {
+          container.innerHTML = `
+            <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 16px; background: rgba(255,255,255,0.01); border: 1px dashed var(--card-border); border-radius: 8px;">
+              ⚠️ Pre-event assignments are empty or not synced. Please check event configuration.
+            </div>
+          `;
+          return;
+        }
+
+        const scouterNameVal = selectedName.trim().toLowerCase();
+        const targetShort = scouterNameVal.split("_")[0];
+        const myAssignments = data.assignments.filter(assign => {
+          const name = assign.scout.trim().toLowerCase();
+          const scoutShort = name.split("_")[0];
+          return name === scouterNameVal || name === targetShort || scouterNameVal.startsWith(name) || name.startsWith(targetShort);
+        });
+
+        if (myAssignments.length === 0) {
+          container.innerHTML = `
+            <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 16px; background: rgba(255,255,255,0.01); border: 1px dashed var(--card-border); border-radius: 8px;">
+              No pre-event assignments scheduled for ${selectedName}.
+            </div>
+          `;
+          return;
+        }
+
+        // Count completed matches for each assignment using both server data and local IndexedDB records
+        let localPreEventRecords = [];
+        try {
+          if (window.dbManager) {
+            const allLocal = await window.dbManager.getAllRecords();
+            localPreEventRecords = allLocal.filter(r => {
+              const isPre = r.is_preevent === 1 || r.is_preevent === "1" || r.is_preevent === true || String(r.is_preevent).toLowerCase() === "true";
+              const eventMatches = String(r.upcoming_event || "").trim().toLowerCase() === (window.selectedEvent || "").toLowerCase();
+              return isPre && eventMatches;
+            });
+          }
+        } catch (e) {
+          console.warn("[UI] Failed to query local pre-event records for scheduler:", e);
+        }
+
+        let listHtml = "";
+        myAssignments.forEach(assign => {
+          const serverRuns = (data.completedMatches || []).filter(m => parseInt(m.team) === assign.team).map(m => parseInt(m.match));
+          const localRuns = localPreEventRecords.filter(r => parseInt(r.teamno) === assign.team).map(r => parseInt(r.matchno));
+          const allCompletedMatches = new Set([...serverRuns, ...localRuns]);
+          const completedCount = allCompletedMatches.size;
+          const target = assign.target || 4;
+          const isCompleted = completedCount >= target;
+          
+          const pct = Math.min(100, Math.round((completedCount / target) * 100));
+          const statusText = isCompleted ? "Completed" : `${completedCount}/${target} Matches`;
+          const badgeStyle = isCompleted 
+            ? "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981;" 
+            : "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b;";
+
+          listHtml += `
+            <div class="history-item schedule-item" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="history-team" style="font-weight: bold; font-family: 'Outfit';">
+                  Team ${assign.team}
+                </div>
+                <span class="sync-badge" style="font-size: 0.75rem; padding: 2px 6px; ${badgeStyle}">${statusText}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                <div style="flex: 1; margin-right: 12px;">
+                  <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                    <div style="width: ${pct}%; height: 100%; background: ${isCompleted ? '#10b981' : 'var(--accent-color)'}; border-radius: 3px; transition: width 0.3s ease;"></div>
+                  </div>
+                </div>
+                <button type="button" class="btn-primary btn-scout-homework-sched" data-team="${assign.team}" style="padding: 4px 10px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none; margin-top: 0;">
+                  Scout
+                </button>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = listHtml;
+
+        // Bind clicks to "Scout" buttons in scheduler container
+        container.querySelectorAll(".btn-scout-homework-sched").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const teamNum = btn.getAttribute("data-team");
+            const preeventTeamSelect = document.getElementById("preevent-team-select");
+            const preeventMatchInput = document.getElementById("preevent-matchno");
+            if (preeventTeamSelect) {
+              preeventTeamSelect.value = teamNum;
+              preeventTeamSelect.dispatchEvent(new Event("change"));
+              
+              if (preeventMatchInput) {
+                preeventMatchInput.focus();
+                preeventMatchInput.select();
+              }
+              
+              if (window.showToast) {
+                window.showToast(`Selected Homework: Team ${teamNum}`, "success");
+              }
+            }
+          });
+        });
+
+        return;
+      }
+
       let latestMatch = 0;
-      
       const adminConfigCached = localStorage.getItem("admin_config");
       let adminConfig = {};
       try {
@@ -691,22 +797,18 @@
       }
 
       const isSimActive = adminConfig.simActive === true || adminConfig.simActive === 1 || String(adminConfig.simActive).toLowerCase() === "true";
-      
+      let testMatchNums = [1234, 999, 9999, 1000]; // default fallback
+      if (adminConfig.testMatchNumbers) {
+        testMatchNums = String(adminConfig.testMatchNumbers)
+          .split(",")
+          .map(m => parseInt(m.trim()))
+          .filter(m => !isNaN(m));
+      }
+
       if (isSimActive) {
-        // Strict Simulation Mode Progress: run directly off simulation match threshold
         latestMatch = parseInt(adminConfig.simMatchThreshold) || 1;
       } else {
         // Normal Mode Progress calculation
-        // Determine test matches list
-        let testMatchNums = [123, 999, 9999, 1234, 1000]; // default fallback
-        if (adminConfig.testMatchNumbers) {
-          testMatchNums = String(adminConfig.testMatchNumbers)
-            .split(",")
-            .map(m => parseInt(m.trim()))
-            .filter(m => !isNaN(m));
-        }
-
-        // Determine active selected event code
         const currentEvent = (window.selectedEvent || localStorage.getItem("sticky_event") || "").trim().toLowerCase();
 
         // Find max scheduled match number from the event qualification schedule

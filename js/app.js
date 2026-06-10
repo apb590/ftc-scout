@@ -111,11 +111,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (usernameInput) {
       usernameInput.value = localStorage.getItem("sticky_scouter_name") || "";
       const saveName = () => {
-        localStorage.setItem("sticky_scouter_name", usernameInput.value.trim());
+        const val = usernameInput.value.trim();
+        localStorage.setItem("sticky_scouter_name", val);
         if (window.formManager) window.formManager.triggerAutosave();
         updateTeamSelector();
-        if (window.renderPreEventHomework && window.preEventData) {
-          window.renderPreEventHomework(window.preEventData);
+
+        // Bidirectional sync to scouter filter dropdown
+        const filterSelect = document.getElementById("schedule-scouter-filter");
+        if (filterSelect) {
+          const valLower = val.toLowerCase();
+          const shortVal = valLower.split("_")[0];
+          let foundVal = "";
+          for (let i = 0; i < filterSelect.options.length; i++) {
+            const optVal = filterSelect.options[i].value;
+            if (optVal) {
+              const optLower = optVal.toLowerCase();
+              const optShort = optLower.split("_")[0];
+              if (optLower === valLower || optShort === shortVal || valLower.startsWith(optLower) || optLower.startsWith(shortVal)) {
+                foundVal = optVal;
+                break;
+              }
+            }
+          }
+          if (foundVal && filterSelect.value !== foundVal) {
+            filterSelect.value = foundVal;
+          }
+        }
+
+        if (window.scoutingUI && typeof window.scoutingUI.renderSchedulerDashboard === "function") {
+          window.scoutingUI.renderSchedulerDashboard();
         }
       };
       usernameInput.addEventListener("input", saveName);
@@ -419,120 +443,9 @@ document.addEventListener("DOMContentLoaded", async () => {
    * Renders the logged-in scouter's pre-event assignments as a progress checklist
    */
   async function renderPreEventHomework(data) {
-    const homeworkContainer = document.getElementById("preevent-homework-container");
-    if (!homeworkContainer) return;
-
-    if (!data || !data.assignments || data.assignments.length === 0) {
-      homeworkContainer.style.display = "none";
-      homeworkContainer.innerHTML = "";
-      return;
+    if (window.scoutingUI && typeof window.scoutingUI.renderSchedulerDashboard === "function") {
+      window.scoutingUI.renderSchedulerDashboard();
     }
-
-    const scouterNameVal = usernameInput ? usernameInput.value.trim().toLowerCase() : "";
-    if (!scouterNameVal) {
-      homeworkContainer.style.display = "none";
-      homeworkContainer.innerHTML = "";
-      return;
-    }
-
-    // Filter assignments by scouter name using the same prefix/short-name checking rule
-    const targetShort = scouterNameVal.split("_")[0];
-    const myAssignments = data.assignments.filter(assign => {
-      const name = assign.scout.trim().toLowerCase();
-      const scoutShort = name.split("_")[0];
-      return name === scouterNameVal || name === targetShort || scouterNameVal.startsWith(name) || name.startsWith(targetShort);
-    });
-
-    if (myAssignments.length === 0) {
-      homeworkContainer.style.display = "none";
-      homeworkContainer.innerHTML = "";
-      return;
-    }
-
-    // Count completed matches for each assignment using both server data and local IndexedDB records
-    let localPreEventRecords = [];
-    try {
-      if (window.dbManager) {
-        const allLocal = await window.dbManager.getAllRecords();
-        localPreEventRecords = allLocal.filter(r => {
-          const isPre = r.is_preevent === 1 || r.is_preevent === "1" || r.is_preevent === true || String(r.is_preevent).toLowerCase() === "true";
-          const eventMatches = String(r.upcoming_event || "").trim().toLowerCase() === window.selectedEvent.toLowerCase();
-          return isPre && eventMatches;
-        });
-      }
-    } catch (e) {
-      console.warn("[App] Failed to query local pre-event records:", e);
-    }
-
-    let listHtml = `
-      <div class="premium-card" style="margin-top: 12px; margin-bottom: 12px; border: 1px solid var(--accent-color); background: rgba(124, 58, 237, 0.05); padding: 12px; border-radius: var(--radius-sm); box-shadow: none;">
-        <div style="font-weight: bold; color: #7c3aed; font-size: 0.9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-          📋 Your Pre-Event Homework
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-    `;
-
-    myAssignments.forEach(assign => {
-      const serverRuns = (data.completedMatches || []).filter(m => parseInt(m.team) === assign.team).map(m => parseInt(m.match));
-      const localRuns = localPreEventRecords.filter(r => parseInt(r.teamno) === assign.team).map(r => parseInt(r.matchno));
-      const allCompletedMatches = new Set([...serverRuns, ...localRuns]);
-      const completedCount = allCompletedMatches.size;
-      const target = assign.target || 4;
-      const isCompleted = completedCount >= target;
-      
-      const pct = Math.min(100, Math.round((completedCount / target) * 100));
-      const statusText = isCompleted ? "Completed" : `${completedCount}/${target} Matches`;
-      const badgeStyle = isCompleted 
-        ? "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981;" 
-        : "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b;";
-
-      listHtml += `
-        <div style="display: flex; flex-direction: column; gap: 4px; padding: 8px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-size: 0.85rem; font-weight: bold; font-family: 'Outfit';">
-              Team ${assign.team}
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <span class="sync-badge" style="font-size: 0.75rem; padding: 2px 6px; ${badgeStyle}">${statusText}</span>
-              <button type="button" class="btn-primary btn-scout-homework" data-team="${assign.team}" style="padding: 2px 6px; font-size: 0.75rem; background: var(--accent-color); box-shadow: none; margin-top: 0;">
-                Scout
-              </button>
-            </div>
-          </div>
-          <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; margin-top: 2px;">
-            <div style="width: ${pct}%; height: 100%; background: ${isCompleted ? '#10b981' : 'var(--accent-color)'}; border-radius: 2px; transition: width 0.3s ease;"></div>
-          </div>
-        </div>
-      `;
-    });
-
-    listHtml += `
-        </div>
-      </div>
-    `;
-
-    homeworkContainer.innerHTML = listHtml;
-    homeworkContainer.style.display = "block";
-
-    // Bind clicks to "Scout" buttons
-    homeworkContainer.querySelectorAll(".btn-scout-homework").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const teamNum = btn.getAttribute("data-team");
-        if (preeventTeamSelect) {
-          preeventTeamSelect.value = teamNum;
-          preeventTeamSelect.dispatchEvent(new Event("change"));
-          
-          if (preeventMatchInput) {
-            preeventMatchInput.focus();
-            preeventMatchInput.select();
-          }
-          
-          if (window.showToast) {
-            window.showToast(`Selected Homework: Team ${teamNum}`, "success");
-          }
-        }
-      });
-    });
   }
 
   window.renderPreEventHomework = renderPreEventHomework;
@@ -651,7 +564,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (e.target && e.target.id === "teamno") {
         const teamVal = e.target.value;
         const matchVal = parseInt(matchnoInput ? matchnoInput.value : "0");
-        const testMatchNumbers = [123, 999, 9999, 1234, 1000];
+        const testMatchNumbers = [1234, 999, 9999, 1000];
 
         if (testMatchNumbers.includes(matchVal)) {
           const selectedTeam = parseInt(teamVal);
@@ -852,7 +765,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const matchVal = parseInt(matchnoInput.value);
     const testDataBanner = document.getElementById("test-data-banner");
-    const testMatchNumbers = [123, 999, 9999, 1234, 1000];
+    const testMatchNumbers = [1234, 999, 9999, 1000];
 
     // Check if it is a test match number
     if (testMatchNumbers.includes(matchVal)) {

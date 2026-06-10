@@ -94,10 +94,6 @@
             <button type="button" class="btn-secondary" id="clear-form-btn" style="margin-bottom: 16px; border-color: var(--color-error); color: var(--color-error); background: rgba(239, 68, 68, 0.05); font-weight: 700;">Reset / Clear Scouting Form</button>
             <div class="responsive-form-grid">
               <div class="input-group" style="margin-bottom: 0;">
-                <label class="input-label" for="username">Scouter Name (first_lastinitial) *</label>
-                <input type="text" id="username" class="input-control" placeholder="e.g. alden_h" required pattern="^[a-zA-Z]+_[a-zA-Z]$" title="Please enter in first_lastinitial format (e.g., alden_h)">
-              </div>
-              <div class="input-group" style="margin-bottom: 0;">
                 <label class="input-label" for="event-select">Active Event *</label>
                 <div style="display: flex; gap: 8px; align-items: stretch;">
                   <select id="event-select" class="input-control" required style="flex: 1; min-width: 0;">
@@ -119,6 +115,29 @@
                   ">↻</button>
                 </div>
               </div>
+              <div class="input-group" style="margin-bottom: 0;">
+                <label class="input-label" for="schedule-scouter-filter" style="display: flex; justify-content: space-between; align-items: center;">
+                  <span>Scouter Name *</span>
+                  <button type="button" id="refresh-schedule-btn" style="
+                    background: rgba(99, 102, 241, 0.1);
+                    border: 1px solid rgba(99, 102, 241, 0.2);
+                    border-radius: var(--radius-sm);
+                    color: var(--accent-color);
+                    padding: 2px 8px;
+                    font-size: 0.75rem;
+                    cursor: pointer;
+                    margin-top: 0;
+                  ">↻ Refresh</button>
+                </label>
+                <select id="schedule-scouter-filter" class="input-control">
+                  <option value="">-- Choose Name --</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="input-group" style="margin-top: 12px; margin-bottom: 0;">
+              <label class="input-label" for="username">Manual Username Override (e.g. alden_h)</label>
+              <input type="text" id="username" class="input-control" placeholder="e.g. alden_h" pattern="^[a-zA-Z]+_[a-zA-Z]$" title="Please enter in first_lastinitial format (e.g., alden_h)">
             </div>
 
             <!-- Scouting Mode Toggle (Revealed when an event is selected) -->
@@ -130,6 +149,18 @@
                 </div>
                 <div class="segment-item">
                   <button type="button" class="segment-btn" id="mode-btn-research" data-value="research">🎯 Pre-Event</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Assignments Schedule Timetable Container -->
+            <div class="premium-card" id="my-schedule-card" style="border: 1px solid var(--card-border); background: rgba(255,255,255,0.01); padding: 12px; margin-top: 16px; margin-bottom: 16px; box-shadow: none;">
+              <div style="font-weight: bold; color: var(--accent-color); font-size: 0.9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                📅 Your Assigned Schedule / Checklist
+              </div>
+              <div id="schedule-timetable-container" style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 6px;">
+                  Select a scouter name above to load assignments.
                 </div>
               </div>
             </div>
@@ -148,7 +179,6 @@
                   </div>
                 </div>
               </div>
-
             </div>
 
             <!-- Pre-Event Scouting Dashboard (Dynamic Panel) -->
@@ -156,9 +186,6 @@
               <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.1rem; color: var(--accent-color); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                 🎯 Pre-Event Scouting Dashboard
               </h3>
-              
-              <!-- Scouter Homework Checklist -->
-              <div id="preevent-homework-container" style="margin-bottom: 16px;"></div>
               
               <div class="responsive-form-grid">
                 <div class="input-group" style="margin-bottom: 0;">
@@ -199,33 +226,6 @@
             </div>
 
             <input type="hidden" id="alliance" value="">
-          </div>
-
-          <!-- SECTION 1B: MY SCHEDULE -->
-          <div class="premium-card" id="my-schedule-card" style="margin-top: 16px;">
-            <h2 class="card-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-              <span>📅 My Assignments Schedule</span>
-              <button type="button" id="refresh-schedule-btn" style="
-                background: rgba(99, 102, 241, 0.1);
-                border: 1px solid rgba(99, 102, 241, 0.2);
-                border-radius: var(--radius-sm);
-                color: var(--accent-color);
-                padding: 4px 10px;
-                font-size: 0.8rem;
-                cursor: pointer;
-              ">↻ Refresh</button>
-            </h2>
-            <div class="input-group" style="margin-bottom: 12px;">
-              <label class="input-label" for="schedule-scouter-filter">Select Your Name to View Schedule:</label>
-              <select id="schedule-scouter-filter" class="input-control">
-                <option value="">-- Choose Name --</option>
-              </select>
-            </div>
-            <div id="schedule-timetable-container" style="display: flex; flex-direction: column; gap: 8px;">
-              <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 12px;">
-                Select a scouter name above to load assignments.
-              </div>
-            </div>
           </div>
 
           <!-- SECTION 2: INTERACTIVE CANVASES STARTING POSITION -->
