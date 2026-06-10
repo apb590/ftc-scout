@@ -629,6 +629,10 @@
         console.warn("[UI] Failed to parse schedule:", e);
       }
 
+      if (!Array.isArray(schedule)) {
+        schedule = [];
+      }
+
       if (filterSelect) {
         const currentValue = filterSelect.value;
         filterSelect.innerHTML = `<option value="">-- Choose Name --</option>`;
@@ -640,8 +644,24 @@
             filterSelect.appendChild(opt);
           }
         });
-        if (currentValue && Array.from(filterSelect.options).some(o => o.value === currentValue)) {
-          filterSelect.value = currentValue;
+        
+        let bestSelection = currentValue;
+        if (!bestSelection) {
+          const stickyScouter = (localStorage.getItem("sticky_scouter_name") || "").trim().toLowerCase();
+          const stickyShort = stickyScouter.split("_")[0];
+          if (stickyShort) {
+            const found = scouters.find(s => {
+              const nameLower = s.name.toLowerCase();
+              return nameLower === stickyShort || nameLower === stickyScouter || stickyScouter.startsWith(nameLower) || nameLower.startsWith(stickyShort);
+            });
+            if (found) {
+              bestSelection = found.name;
+            }
+          }
+        }
+
+        if (bestSelection && Array.from(filterSelect.options).some(o => o.value === bestSelection)) {
+          filterSelect.value = bestSelection;
         }
       }
 
@@ -1025,11 +1045,19 @@
       let hiddenCount = 0;
 
       if (assignments.length === 0) {
-        html = `
-          <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 16px; background: rgba(255,255,255,0.01); border: 1px dashed var(--card-border); border-radius: 8px;">
-            No scheduled match assignments for this shift.
-          </div>
-        `;
+        if (!schedule || schedule.length === 0) {
+          html = `
+            <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 16px; background: rgba(255,255,255,0.01); border: 1px dashed var(--card-border); border-radius: 8px;">
+              ⚠️ Master schedule is empty or not synced. Please generate the schedule on the spreadsheet, then tap sync.
+            </div>
+          `;
+        } else {
+          html = `
+            <div style="font-style: italic; color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 16px; background: rgba(255,255,255,0.01); border: 1px dashed var(--card-border); border-radius: 8px;">
+              No scheduled match assignments for this shift.
+            </div>
+          `;
+        }
       } else {
         assignments.forEach(assign => {
           if (assign.match < displayMinMatch) {

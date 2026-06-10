@@ -328,11 +328,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // Fetch scouter configurations for the selected event
+    // Fetch scouter configurations and scouting schedule for the selected event
     if (window.schedulerClient) {
       window.schedulerClient.fetchScouterConfig(() => {
         if (window.scoutingUI) {
           window.scoutingUI.renderScouterSettings();
+        }
+      });
+      window.schedulerClient.fetchScoutingSchedule(() => {
+        if (window.scoutingUI) {
           window.scoutingUI.renderSchedulerDashboard();
         }
       });
