@@ -671,6 +671,20 @@ textarea.input-control {
   transform: translateX(-50%) translateY(0);
 }
 
+/* Submission Progress Ring Styling */
+.progress-ring {
+  transform: rotate(-90deg);
+}
+
+.progress-ring__circle {
+  transition: stroke-dashoffset 0.15s linear;
+  transform-origin: 50% 50%;
+}
+
+.progress-ring__circle-bg {
+  stroke-dasharray: none;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -681,6 +695,13 @@ textarea.input-control {
 @media (max-width: 480px) {
   body {
     padding-bottom: 80px;
+  }
+
+  .toast-banner {
+    bottom: calc(85px + env(safe-area-inset-bottom, 0px));
+    width: calc(100% - 32px);
+    max-width: 320px;
+    justify-content: center;
   }
   
   .premium-card {

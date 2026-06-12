@@ -1086,45 +1086,137 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!confirmSubmit) return;
       }
 
+      const overlay = document.getElementById("submission-overlay");
+      const progressCircle = document.getElementById("submission-progress-circle");
+      const progressLabel = document.getElementById("submission-progress-label");
+      const statusLabel = document.getElementById("submission-status");
+      const submitBtn = document.getElementById("submit-form-btn");
+
+      const updateProgress = (pct, text) => {
+        if (progressLabel) progressLabel.textContent = `${pct}%`;
+        if (statusLabel) statusLabel.textContent = text;
+        if (progressCircle) {
+          const offset = 213.628 * (1 - pct / 100);
+          progressCircle.style.strokeDashoffset = offset;
+        }
+      };
+
+      if (submitBtn) submitBtn.disabled = true;
+      if (overlay) overlay.classList.add("active");
+
       try {
-        // 1. Save to database
-        await window.dbManager.saveRecord(finalRecord);
+        // Step 1: Initial compile (already done)
+        updateProgress(0, "Compiling match data...");
 
-        // 2. Clear draft
-        await window.dbManager.clearDraft();
+        // 300ms: Save to database
+        setTimeout(async () => {
+          try {
+            updateProgress(20, "Saving scouting record offline...");
+            await window.dbManager.saveRecord(finalRecord);
+          } catch (err) {
+            console.error("[Submit] Database save failed:", err);
+            updateProgress(20, "⚠️ Offline save error! Retrying...");
+          }
+        }, 300);
 
-        // 3. Reset form
-        const savedEvent = eventSelect ? eventSelect.value : "";
-        form.reset();
-        window.formManager.resetFormCounters();
-        updateTeamSelector();
-        window.activePinX = null;
-        window.activePinY = null;
-        if (window.canvasInstance) {
-          window.canvasInstance.clearPin();
-        }
+        // 600ms: Clear draft
+        setTimeout(async () => {
+          try {
+            updateProgress(40, "Clearing local active draft...");
+            await window.dbManager.clearDraft();
+          } catch (err) {
+            console.warn("[Submit] Draft clear failed:", err);
+          }
+        }, 600);
 
-        // Restore scouter name & event
-        document.getElementById("username").value = finalRecord.username;
-        if (savedEvent && eventSelect) {
-          eventSelect.value = savedEvent;
-          await handleEventSelectionChange();
-        }
+        // 900ms: Reset form, increment match, load next match, navigate Setup
+        setTimeout(async () => {
+          updateProgress(70, "Loading next match schedule...");
 
-        // 4. Ingestion Sync Queue trigger
-        if (window.syncManager) {
-          window.syncManager.processSyncQueue();
-        }
+          const isPreEventMode = finalRecord.is_preevent === 1 || finalRecord.is_preevent === "1" || finalRecord.is_preevent === true || String(finalRecord.is_preevent).toLowerCase() === "true";
+          const savedEvent = eventSelect ? eventSelect.value : "";
 
-        showToast("Scouting Record Saved Successfully!");
+          // Reset the form counters and inputs
+          form.reset();
+          window.formManager.resetFormCounters();
+          
+          window.activePinX = null;
+          window.activePinY = null;
+          if (window.canvasInstance) {
+            window.canvasInstance.clearPin();
+          }
 
+          // Restore correct mode button active class
+          if (isPreEventMode) {
+            if (modeBtnResearch) modeBtnResearch.classList.add("active");
+            if (modeBtnLive) modeBtnLive.classList.remove("active");
+          } else {
+            if (modeBtnLive) modeBtnLive.classList.add("active");
+            if (modeBtnResearch) modeBtnResearch.classList.remove("active");
+          }
+
+          // Restore scouter name & event
+          document.getElementById("username").value = finalRecord.username;
+          if (savedEvent && eventSelect) {
+            eventSelect.value = savedEvent;
+            await handleEventSelectionChange();
+          }
+
+          // Apply auto-increment for Live Match mode only
+          if (!isPreEventMode) {
+            const currentMatch = parseInt(finalRecord.matchno);
+            if (!isNaN(currentMatch)) {
+              const nextMatch = currentMatch + 1;
+              const matchnoInput = document.getElementById("matchno");
+              if (matchnoInput) {
+                matchnoInput.value = nextMatch;
+              }
+            }
+          } else {
+            // For Pre-Event mode, clear pre-event match input or leave unchanged
+            const preeventMatchInput = document.getElementById("preevent-matchno");
+            if (preeventMatchInput) {
+              preeventMatchInput.value = "";
+            }
+          }
+
+          // Run updateTeamSelector to refresh team options for the next match
+          updateTeamSelector();
+
+          // Scroll back to top
+          window.scrollTo({ top: 0, behavior: 'instant' });
+        }, 900);
+
+        // 1200ms: Background sync queue trigger
         setTimeout(() => {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 100);
+          updateProgress(90, "Finalizing transaction...");
+          if (window.syncManager) {
+            window.syncManager.processSyncQueue();
+          }
+        }, 1200);
+
+        // 1500ms: Submission complete!
+        setTimeout(() => {
+          updateProgress(100, "Submission complete!");
+
+          // Audio chime & haptics
+          if (window.feedbackManager) {
+            window.feedbackManager.trigger("success");
+          }
+
+          // Hide overlay
+          if (overlay) overlay.classList.remove("active");
+          if (submitBtn) submitBtn.disabled = false;
+
+          // Show success toast
+          showToast("Scouting Record Saved Successfully!");
+        }, 1500);
 
       } catch (err) {
-        console.error("[App] Submission failed:", err);
-        alert("Failed to save scouting record offline: " + err.message);
+        console.error("[App] Submission sequence failed:", err);
+        alert("Failed to submit scouting record: " + err.message);
+        if (overlay) overlay.classList.remove("active");
+        if (submitBtn) submitBtn.disabled = false;
       }
     }
   });

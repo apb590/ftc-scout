@@ -24,6 +24,22 @@
     <span id="toast-message">Form Autosaved!</span>
   </div>
 
+  <!-- Submission Animation Overlay -->
+  <div class="overlay-modal" id="submission-overlay" style="display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 11000; background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
+    <div class="submission-card" style="text-align: center; max-width: 400px; width: 90%; padding: 32px 24px; border-radius: var(--radius-md); background: #0f172a; border: 1px solid var(--accent-color); box-shadow: var(--shadow-glow); display: flex; flex-direction: column; align-items: center; gap: 16px;">
+      <div class="spinner-container" style="position: relative; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
+        <!-- Circular Progress Ring SVG -->
+        <svg class="progress-ring" width="80" height="80">
+          <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="6" fill="transparent" r="34" cx="40" cy="40"/>
+          <circle id="submission-progress-circle" class="progress-ring__circle" stroke="var(--accent-color)" stroke-width="6" fill="transparent" r="34" cx="40" cy="40" stroke-dasharray="213.628" stroke-dashoffset="213.628"/>
+        </svg>
+        <div id="submission-progress-label" class="progress-label" style="position: absolute; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--text-primary);">0%</div>
+      </div>
+      <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.35rem; color: var(--text-primary); margin: 0;" id="submission-title">Submitting Entry...</h3>
+      <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.45; margin: 0; min-height: 2.9rem;" id="submission-status">Compiling match data...</p>
+    </div>
+  </div>
+
   <!-- App Header -->
   <header class="app-header">
     <div class="logo-section">

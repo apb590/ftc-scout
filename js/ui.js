@@ -1592,6 +1592,10 @@
       } else if (type === "warning") {
         this.playTick(220, 0.20); // Buzzing low pitch beep
         this.vibrate([50, 40, 50]); // Double short pulse
+      } else if (type === "success") {
+        this.playTick(587.33, 0.08); // D5 tone
+        setTimeout(() => this.playTick(880, 0.15), 80); // A5 rising tone
+        this.vibrate([40, 30, 60]); // Premium success double vibration pulse
       }
     }
   }
