@@ -37,6 +37,11 @@
       </div>
       <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.35rem; color: var(--text-primary); margin: 0;" id="submission-title">Submitting Entry...</h3>
       <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.45; margin: 0; min-height: 2.9rem;" id="submission-status">Compiling match data...</p>
+      
+      <!-- Horizontal Progress Bar Fill Indicator -->
+      <div class="progress-bar-container" style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; overflow: hidden; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.02);">
+        <div id="submission-progress-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--color-success)); transition: width 0.15s ease;"></div>
+      </div>
     </div>
   </div>
 

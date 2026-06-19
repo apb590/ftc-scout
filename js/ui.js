@@ -607,6 +607,11 @@
           btn.style.display = "none";
         }
       });
+
+      const modeGroup = document.getElementById("scouting-mode-group");
+      if (modeGroup) {
+        modeGroup.style.display = isHeadScout ? "block" : "none";
+      }
     }
 
     /**

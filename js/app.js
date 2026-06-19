@@ -66,6 +66,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Initialize active events dropdown list
   try {
     await initEventDropdown(false);
+    if (navigator.onLine) {
+      initEventDropdown(true).catch(e => console.warn("[App] Background dropdown init failed:", e));
+    }
   } catch (e) {
     console.error("[App] Failed to initialize active events dropdown:", e);
   }
@@ -245,6 +248,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!window.selectedEvent) return;
 
       if (urlParams.has("scouted_event") || window.location.search.includes("mode=preevent")) {
+        if (modeBtnResearch) modeBtnResearch.classList.add("active");
+        if (modeBtnLive) modeBtnLive.classList.remove("active");
+        return;
+      }
+
+      // Check backend override first
+      let overrideMode = "AUTO";
+      try {
+        const adminConfig = JSON.parse(localStorage.getItem("admin_config") || "{}");
+        if (adminConfig.scoutingModeOverride) {
+          overrideMode = String(adminConfig.scoutingModeOverride).toUpperCase().trim();
+        }
+      } catch (e) {
+        console.warn("[App] Failed to parse admin config for scoutingModeOverride:", e);
+      }
+
+      if (overrideMode === "LIVE") {
+        if (modeBtnLive) modeBtnLive.classList.add("active");
+        if (modeBtnResearch) modeBtnResearch.classList.remove("active");
+        return;
+      } else if (overrideMode === "PRE-EVENT" || overrideMode === "PRE_EVENT") {
         if (modeBtnResearch) modeBtnResearch.classList.add("active");
         if (modeBtnLive) modeBtnLive.classList.remove("active");
         return;
