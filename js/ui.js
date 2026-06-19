@@ -20,6 +20,9 @@
     init() {
       this.toastBanner = document.getElementById("toast-notification");
       this.toastMsg = document.getElementById("toast-message");
+      if (this.toastBanner) {
+        this.toastBanner.addEventListener("click", () => this.dismissToast());
+      }
       this.historyListContainer = document.getElementById("history-list-container");
       this.auditListContainer = document.getElementById("audit-list-container");
       this.progressLineFill = document.getElementById("phase-progress-line-fill");
@@ -46,6 +49,8 @@
           if (window.feedbackManager) {
             window.feedbackManager.trigger("click");
           }
+
+          this.dismissToast();
           
           navTabs.forEach(t => t.classList.remove("active"));
           tab.classList.add("active");
@@ -134,6 +139,16 @@
     }
 
     /**
+     * Clear and dismiss any active toast notification instantly
+     */
+    dismissToast() {
+      if (this.toastBanner) {
+        this.toastBanner.classList.remove("active");
+      }
+      clearTimeout(this.toastTimeout);
+    }
+
+    /**
      * Sets the active alliance styling (red vs blue layout accent theme)
      */
     setAllianceStyle(alliance) {
@@ -175,6 +190,9 @@
     navigateToPhase(phaseId) {
       const targetIndex = this.phaseIds.indexOf(phaseId);
       if (targetIndex === -1) return;
+
+      // Clear any active toast message when navigating scouting phases to avoid obstructing inputs
+      this.dismissToast();
 
       // Validate setup phase inputs if moving past setup step
       if (this.currentPhaseIndex === 0 && targetIndex > 0) {

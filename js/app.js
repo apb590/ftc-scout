@@ -1090,6 +1090,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const progressCircle = document.getElementById("submission-progress-circle");
       const progressLabel = document.getElementById("submission-progress-label");
       const statusLabel = document.getElementById("submission-status");
+      const progressBarFill = document.getElementById("submission-progress-bar-fill");
       const submitBtn = document.getElementById("submit-form-btn");
 
       const updateProgress = (pct, text) => {
@@ -1098,6 +1099,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (progressCircle) {
           const offset = 213.628 * (1 - pct / 100);
           progressCircle.style.strokeDashoffset = offset;
+        }
+        if (progressBarFill) {
+          progressBarFill.style.width = `${pct}%`;
         }
       };
 
@@ -1135,6 +1139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           const isPreEventMode = finalRecord.is_preevent === 1 || finalRecord.is_preevent === "1" || finalRecord.is_preevent === true || String(finalRecord.is_preevent).toLowerCase() === "true";
           const savedEvent = eventSelect ? eventSelect.value : "";
+          const savedPreEventTeam = preeventTeamSelect ? preeventTeamSelect.value : "";
 
           // Reset the form counters and inputs
           form.reset();
@@ -1172,16 +1177,22 @@ document.addEventListener("DOMContentLoaded", async () => {
                 matchnoInput.value = nextMatch;
               }
             }
+            // Run updateTeamSelector to refresh team options for the next match
+            updateTeamSelector();
           } else {
-            // For Pre-Event mode, clear pre-event match input or leave unchanged
+            // For Pre-Event mode, restore the selected team in the dropdown so it stays selected
+            if (savedPreEventTeam && preeventTeamSelect) {
+              preeventTeamSelect.value = savedPreEventTeam;
+              if (typeof handlePreEventSelectionUpdates === "function") {
+                handlePreEventSelectionUpdates();
+              }
+            }
+            // Clear the pre-event match input so they can enter the next one manually
             const preeventMatchInput = document.getElementById("preevent-matchno");
             if (preeventMatchInput) {
               preeventMatchInput.value = "";
             }
           }
-
-          // Run updateTeamSelector to refresh team options for the next match
-          updateTeamSelector();
 
           // Scroll back to top
           window.scrollTo({ top: 0, behavior: 'instant' });
@@ -1208,8 +1219,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (overlay) overlay.classList.remove("active");
           if (submitBtn) submitBtn.disabled = false;
 
-          // Show success toast
-          showToast("Scouting Record Saved Successfully!");
+          // Show success toast indicating that the next match is ready
+          const isPreEventMode = finalRecord.is_preevent === 1 || finalRecord.is_preevent === "1" || finalRecord.is_preevent === true || String(finalRecord.is_preevent).toLowerCase() === "true";
+          if (!isPreEventMode) {
+            const currentMatch = parseInt(finalRecord.matchno);
+            const nextMatch = !isNaN(currentMatch) ? currentMatch + 1 : "";
+            showToast(`Match ${finalRecord.matchno} Saved! Form refreshed to Match ${nextMatch}.`);
+          } else {
+            showToast(`Pre-Event Match ${finalRecord.matchno} Saved for Team ${finalRecord.teamno}!`);
+          }
         }, 1500);
 
       } catch (err) {
