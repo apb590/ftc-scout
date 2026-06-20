@@ -362,9 +362,9 @@
       document.querySelectorAll(".segment-btn").forEach(btn => btn.classList.remove("active"));
 
       const automoveInput = document.getElementById("automove");
-      if (automoveInput) automoveInput.value = "No";
-      const automoveNoBtn = document.querySelector(".segment-btn[data-field='automove'][data-value='No']");
-      if (automoveNoBtn) automoveNoBtn.classList.add("active");
+      if (automoveInput) automoveInput.value = "Yes";
+      const automoveYesBtn = document.querySelector(".segment-btn[data-field='automove'][data-value='Yes']");
+      if (automoveYesBtn) automoveYesBtn.classList.add("active");
 
       // Reset alliance
       const allianceInput = document.getElementById("alliance");
